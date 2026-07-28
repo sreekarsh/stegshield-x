@@ -135,57 +135,59 @@ export default function LandingPage() {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl transition-all">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 p-0.5 shadow-sm">
-              <div className="h-full w-full bg-background rounded-[7px] flex items-center justify-center">
-                <Shield className="h-4.5 w-4.5 text-violet-400" />
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/85 backdrop-blur-xl transition-all">
+        <div className="container mx-auto flex h-20 items-center justify-between px-4 sm:px-8">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 p-0.5 shadow-md group-hover:scale-105 transition-transform">
+              <div className="h-full w-full bg-background rounded-[10px] flex items-center justify-center">
+                <Shield className="h-5.5 w-5.5 text-violet-400" />
               </div>
             </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               StegShield <span className="text-violet-400">X</span>
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <nav className="hidden md:flex items-center gap-10 text-base font-medium">
             <Link
               href="#features"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors font-medium text-base"
             >
               Features
             </Link>
             <Link
               href="#demo"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors font-medium text-base"
             >
               Live Console
             </Link>
             <Link
               href="#security"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors font-medium text-base"
             >
               Security
             </Link>
             <Link
               href="#compliance"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors font-medium text-base"
             >
               Compliance
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
+          <div className="flex items-center gap-4">
+            <div className="scale-110">
+              <ThemeToggle />
+            </div>
             <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" className="text-base font-medium text-muted-foreground hover:text-foreground px-4 h-11">
                 Sign In
               </Button>
             </Link>
             <Link href="/register">
-              <Button size="sm" className="bg-violet-600 hover:bg-violet-500 text-white font-medium shadow-sm transition-all rounded-lg">
+              <Button className="h-11 px-6 text-base font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-md hover:shadow-lg transition-all rounded-xl">
                 Get Started
-                <ArrowUpRight className="ml-1 h-4 w-4" />
+                <ArrowUpRight className="ml-1.5 h-5 w-5" />
               </Button>
             </Link>
           </div>
