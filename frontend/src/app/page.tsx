@@ -562,9 +562,10 @@ export default function LandingPage() {
               <Link href="#" className="hover:text-white transition-colors">API Reference</Link>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              &copy; 2026 StegShield X. All rights reserved.
-            </p>
+            <div className="flex flex-col items-center md:items-end gap-1 text-xs text-muted-foreground">
+              <p>&copy; 2026 StegShield X. All rights reserved.</p>
+              <p className="text-violet-400 font-medium">Created by <span className="font-semibold text-cyan-300">Sree Karsh</span></p>
+            </div>
           </div>
         </div>
       </footer>

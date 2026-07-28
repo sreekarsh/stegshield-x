@@ -160,7 +160,7 @@ export const Sidebar = memo(function Sidebar() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-2 border-t border-border/50 bg-background">
+        <div className="absolute bottom-0 left-0 right-0 p-2 border-t border-border/50 bg-background space-y-1">
           <button
             onClick={handleSignOut}
             className={cn(
@@ -171,6 +171,11 @@ export const Sidebar = memo(function Sidebar() {
             <LogOut className="h-4 w-4 shrink-0" />
             {sidebarOpen && <span>Sign Out</span>}
           </button>
+          {sidebarOpen && (
+            <p className="text-[10px] text-center text-muted-foreground pt-1 border-t border-border/20">
+              Created by <span className="font-semibold text-violet-400">Sree Karsh</span>
+            </p>
+          )}
         </div>
       </ScrollArea>
     </aside>
