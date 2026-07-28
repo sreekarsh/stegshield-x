@@ -1,0 +1,53 @@
+# ==============================================================================
+# StegShield X — Render Blueprint Specification
+# Automatically creates PostgreSQL DB, NestJS Backend, and Python AI Service
+# ==============================================================================
+
+services:
+  # NestJS Backend Web Service
+  - type: web
+    name: stegshield-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npm run prisma:generate && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stegshield-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SHARING_DEFAULT_IP_RESTRICTED
+        value: "false"
+      - key: SHARING_DEFAULT_MAX_DOWNLOADS
+        value: "10"
+      - key: SHARING_DEFAULT_EXPIRY
+        value: "24h"
+      - key: SHARING_REQUIRE_PASSWORD
+        value: "true"
+
+  # Python FastAPI AI Microservice
+  - type: web
+    name: stegshield-ai-service
+    env: python
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+databases:
+  # Free PostgreSQL Database Instance
+  - name: stegshield-db
+    databaseName: stegshield
+    user: postgres
+    plan: free

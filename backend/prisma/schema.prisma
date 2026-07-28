@@ -1,0 +1,573 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  EDITOR
+  VIEWER
+  INVESTIGATOR
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum EvidenceStatus {
+  COLLECTED
+  ANALYZING
+  VERIFIED
+  SUBMITTED
+  ARCHIVED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?
+  name          String
+  avatar        String?
+  phone         String?
+  location      String?
+  jobTitle      String?
+  department    String?
+  bio           String?
+  socialLinks   Json?
+  googleId      String?   @unique
+  githubId      String?   @unique
+  role          Role      @default(ADMIN)
+  isVerified    Boolean   @default(false)
+  isMFAEnabled  Boolean   @default(false)
+  mfaSecret     String?
+  tokenVersion       Int       @default(0)
+  resetTokenVersion  Int       @default(0)
+  settings          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  organizations     OrganizationUser[]
+  sentMessages      Message[]        @relation("sender")
+  receivedMessages  Message[]        @relation("receiver")
+  ownedContacts     Contact[]        @relation("contact_owner")
+  contactOf         Contact[]        @relation("contact_member")
+  stegoFiles        StegoFile[]
+  evidence          Evidence[]
+  evidenceShares    EvidenceShare[]  @relation("EvidenceSharedWith")
+  sharedEvidence    EvidenceShare[]  @relation("EvidenceSharedBy")
+  cases             Case[]
+  forensicsReports  ForensicsReport[]
+  tamperReports     TamperReport[]
+  reports           Report[]
+  keys              EncryptionKey[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  apiKeys           ApiKey[]
+  shares            SharedLink[]
+  watermarks        Watermark[]
+  capsules          TimeCapsule[]
+  vaults            DecoyVault[]
+  languages         SecretLanguage[]
+  trustScores       TrustScore[]
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+
+  members    OrganizationUser[]
+  invitations Invitation[]
+}
+
+model OrganizationUser {
+  id             String       @id @default(uuid())
+  role           Role         @default(VIEWER)
+  organizationId String
+  userId         String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String
+  role           Role             @default(VIEWER)
+  token          String           @unique
+  status         InvitationStatus @default(PENDING)
+  invitedBy      String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+
+  @@index([email])
+  @@index([token])
+  @@index([organizationId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  device    String
+  browser   String
+  ip        String
+  location  String?
+  isCurrent Boolean  @default(false)
+  lastActive DateTime @default(now())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([lastActive])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String
+  receiverId  String
+  content     String
+  encrypted   Boolean  @default(true)
+  selfDestruct Boolean @default(false)
+  oneTimeView Boolean @default(false)
+  expiresAt   DateTime?
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  isDeleted   Boolean  @default(false)
+  editedAt    DateTime?
+  createdAt   DateTime @default(now())
+  sender      User     @relation("sender", fields: [senderId], references: [id])
+  receiver    User     @relation("receiver", fields: [receiverId], references: [id])
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  ownerId   String
+  contactId String
+  alias     String?
+  createdAt DateTime @default(now())
+
+  owner   User @relation("contact_owner", fields: [ownerId], references: [id])
+  contact User @relation("contact_member", fields: [contactId], references: [id])
+
+  @@unique([ownerId, contactId])
+  @@index([ownerId])
+  @@index([contactId])
+}
+
+model StegoFile {
+  id             String   @id @default(uuid())
+  userId         String
+  name           String
+  carrierFile    String
+  carrierType    String
+  hiddenDataSize Int
+  algorithm      String
+  encryption     String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model EncryptionKey {
+  id        String   @id @default(uuid())
+  userId    String
+  algorithm String
+  keySize   Int
+  encryptedKey String? /// Stores the AES-256-GCM encrypted symmetric key (base64)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  rotatedAt DateTime?
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Case {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  status      CaseStatus @default(OPEN)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  closedAt    DateTime?
+  user        User      @relation(fields: [userId], references: [id])
+  evidence    Evidence[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum CaseStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+  UNDER_REVIEW
+}
+
+model Evidence {
+  id             String   @id @default(uuid())
+  caseId         String?
+  userId         String
+  name           String
+  type           String
+  hash           String
+  hashAlgorithm  String
+  size           Int
+  filePath       String
+  status         EvidenceStatus @default(COLLECTED)
+  mimeType       String?
+  originalMimeType String?
+  isEncrypted    Boolean  @default(true)
+  encryptionAlgo String?  @default("AES-256-GCM")
+  tags           String[]
+  description    String?
+  createdAt      DateTime @default(now())
+  lastAccessedAt DateTime?
+  lastModifiedAt DateTime?
+  deletedAt      DateTime?
+  user           User     @relation(fields: [userId], references: [id])
+  case           Case?    @relation(fields: [caseId], references: [id])
+  forensicsReports ForensicsReport[]
+  custody        CustodyEntry[]
+  shares         EvidenceShare[]
+
+  @@index([userId])
+  @@index([caseId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model EvidenceShare {
+  id          String   @id @default(uuid())
+  evidenceId  String
+  sharedById  String
+  sharedWithId String
+  permission  SharePermission @default(VIEW)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  evidence    Evidence @relation(fields: [evidenceId], references: [id])
+  sharedBy    User     @relation("EvidenceSharedBy", fields: [sharedById], references: [id])
+  sharedWith  User     @relation("EvidenceSharedWith", fields: [sharedWithId], references: [id])
+
+  @@unique([evidenceId, sharedWithId])
+  @@index([sharedWithId])
+  @@index([expiresAt])
+}
+
+enum SharePermission {
+  VIEW
+  DOWNLOAD
+  MANAGE
+}
+
+model CustodyEntry {
+  id         String   @id @default(uuid())
+  evidenceId String
+  userId     String
+  userName   String
+  action     String
+  signature  String
+  timestamp  DateTime @default(now())
+  evidence   Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@index([evidenceId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  userName  String
+  action    String
+  resource  String
+  resourceId String?
+  ip        String
+  userAgent String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  key         String    @unique
+  permissions String[]
+  isActive    Boolean   @default(true)
+  lastUsed    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model SharedLink {
+  id              String   @id @default(uuid())
+  userId          String
+  fileId          String
+  url             String   @unique
+  password        String?
+  maxDownloads    Int?
+  downloads       Int      @default(0)
+  expiresAt       DateTime?
+  isGeoRestricted Boolean  @default(false)
+  isIPRestricted  Boolean  @default(false)
+  allowedIPs      String[]
+  filePath        String?
+  fileName        String?
+  fileSize        Int?
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Watermark {
+  id              String   @id @default(uuid())
+  userId          String
+  fileId          String
+  type            WatermarkType @default(INVISIBLE)
+  text            String
+  // Visible watermark settings
+  positionX       Int?
+  positionY       Int?
+  opacity         Int?
+  fontSize        Float?
+  fontColor       String?
+  // File paths
+  originalPath    String
+  watermarkedPath String?
+  // Metadata
+  originalMime    String
+  originalSize    Int
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([fileId])
+}
+
+enum WatermarkType {
+  INVISIBLE
+  VISIBLE
+}
+
+model TimeCapsule {
+  id           String    @id @default(uuid())
+  userId       String
+  title        String
+  encryptedData String
+  salt         String?
+  unlockDate   DateTime
+  isOpened     Boolean   @default(false)
+  openedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model DecoyVault {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  fakePassword String
+  realVaultId  String
+  fakeVaultId  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model SecretLanguage {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  version   String
+  glyphs    Json
+  isShared  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model TrustScore {
+  id              String   @id @default(uuid())
+  userId          String
+  fileId          String
+  fileName        String?
+  fileSize        Int?
+  fileType        String?
+  encryptionScore Int
+  privacyScore    Int
+  integrityScore  Int
+  threatScore     Int
+  stegoRisk       Int
+  overallGrade    String
+  analyzedAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, fileId])
+  @@index([userId])
+}
+
+model ForensicsReport {
+  id                  String    @id @default(uuid())
+  userId              String
+  evidenceId          String?
+  fileName            String
+  fileType            String
+  fileSize            Int
+  sha256              String
+  md5                 String?
+  entropy             Float
+  entropyRatio        Float
+  entropySuspicious   Boolean
+  stegoProbability    Float
+  stegoRisk           String
+  lsbRatio            Float
+  lsbDeviation        Float
+  stegoSuspicion      Boolean
+  tamperProbability   Float?
+  tamperScore         Float?
+  tamperAnalysis      String?
+  deepfakeProbability Float?
+  deepfakeConfidence  Float?
+  deepfakeAnalysis    String?
+  threatScore         Int
+  threatLevel         String
+  threatBreakdown     Json?
+  malwareIndicators   Boolean
+  executableHeaders   Json?
+  maliciousStrings    Json?
+  fileStructureValid  Boolean
+  fileStructureIssues Json?
+  metadataAnomalies   Json?
+  elaScore            Float?
+  elaAvailable        Boolean?
+  elaProbability      Float?
+  extractedStrings    Json?
+  embeddedFiles       Json?
+  overallRisk         String
+  degraded            Boolean  @default(false)
+  analyzedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id])
+  evidence            Evidence? @relation(fields: [evidenceId], references: [id])
+
+  @@index([userId])
+  @@index([sha256])
+  @@index([analyzedAt])
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  type      String
+  format    String
+  status    String   @default("completed")
+  data      Json
+  filePath  String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+model TamperReport {
+  id                 String    @id @default(uuid())
+  userId             String
+  fileName           String
+  fileType           String
+  fileSize           Int
+  sha256             String
+  tamperProbability  Float?
+  tamperScore        Float?
+  tamperAnalysis     String?
+  deepfakeProbability Float?
+  deepfakeConfidence Float?
+  deepfakeAnalysis   String?
+  deepfakeFeatures   Json?
+  threatScore        Int
+  threatLevel        String
+  threatBreakdown    Json?
+  malwareHeaders     Json?
+  malwareStrings     Json?
+  avgEntropy         Float
+  maxEntropy         Float
+  entropySuspicious  Boolean
+  lsbRatio           Float
+  lsbDeviation       Float
+  stegoSuspicion     Boolean
+  structureValid     Boolean
+  structureIssues    Json?
+  elaAvailable       Boolean
+  elaScore           Float?
+  elaProbability     Float?
+  overallRisk        String
+  degraded           Boolean  @default(false)
+  analyzedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([sha256])
+  @@index([analyzedAt])
+}
