@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, UseGuards, Req, Res } from "@nestjs/common"
+import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, UseGuards, Req, Res } from "@nestjs/common"
 import { AuthGuard } from "@nestjs/passport"
 import { Throttle } from "@nestjs/throttler"
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger"
@@ -60,6 +60,17 @@ function clearAccessCookie(res: any) {
   })
 }
 
+function setUserRoleCookie(res: any, role: string) {
+  res.cookie("user_role", role || "USER", {
+    httpOnly: false,
+    secure: IS_PROD,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    domain: COOKIE_DOMAIN,
+  })
+}
+
 @ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
@@ -71,6 +82,7 @@ export class AuthController {
     const result = await this.authService.register(dto, extractClientIp(req))
     setRefreshCookie(res, result.refreshToken)
     setAccessCookie(res, result.accessToken)
+    setUserRoleCookie(res, result.user.role)
     return { user: result.user, accessToken: result.accessToken }
   }
 
@@ -81,6 +93,7 @@ export class AuthController {
     const result = await this.authService.login(dto, extractClientIp(req))
     setRefreshCookie(res, result.refreshToken)
     setAccessCookie(res, result.accessToken)
+    setUserRoleCookie(res, result.user.role)
     return { user: result.user, accessToken: result.accessToken }
   }
 
@@ -95,6 +108,7 @@ export class AuthController {
     const result = await this.authService.refresh(token)
     setRefreshCookie(res, result.refreshToken)
     setAccessCookie(res, result.accessToken)
+    setUserRoleCookie(res, result.user.role)
     return { user: result.user, accessToken: result.accessToken }
   }
 

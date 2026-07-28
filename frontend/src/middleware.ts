@@ -31,7 +31,7 @@ export default function middleware(request: NextRequest) {
   if (pathname.startsWith("/admin-panel") || pathname.startsWith("/admin")) {
     const userRole = request.cookies.get("user_role")?.value || ""
     if (userRole !== "ADMIN" && userRole !== "OWNER") {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      return NextResponse.redirect(new URL("/home", request.url))
     }
   }
 
