@@ -151,9 +151,14 @@ export default function LandingPage() {
                 <Shield className="h-5.5 w-5.5 text-violet-400" />
               </div>
             </div>
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              StegShield <span className="text-violet-400">X</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-none">
+                StegShield <span className="text-violet-400">X</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium tracking-normal pt-1">
+                Created by <span className="text-cyan-300 font-semibold">Sree Karsh</span>
+              </span>
+            </div>
           </Link>
 
           <nav className="hidden md:flex items-center gap-10 text-base font-medium">

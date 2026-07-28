@@ -104,8 +104,13 @@ export const Sidebar = memo(function Sidebar() {
       <div className="flex h-16 items-center justify-between px-4 border-b border-border/50">
         {sidebarOpen && (
           <Link href="/home" className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-cyber-500" />
-            <span className="font-bold text-sm">StegShield X</span>
+            <Shield className="h-7 w-7 text-cyber-500 shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-bold text-sm leading-none">StegShield X</span>
+              <span className="text-[10px] text-muted-foreground font-medium pt-1">
+                Created by <span className="text-cyber-400 font-semibold">Sree Karsh</span>
+              </span>
+            </div>
           </Link>
         )}
         {!sidebarOpen && (
