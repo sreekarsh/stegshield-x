@@ -1,4 +1,4 @@
-﻿import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException } from "@nestjs/common"
+import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
 import { Prisma } from "@prisma/client"
 import { PrismaService } from "../prisma/prisma.service"
@@ -383,7 +383,11 @@ export class AuthService {
       }
     }
 
-    return { message: "If an account with that email exists, a reset link has been sent" }
+    const isDev = process.env.NODE_ENV !== "production"
+    return {
+      message: "If an account with that email exists, a reset link has been sent",
+      ...(isDev ? { resetUrl, resetToken } : {}),
+    }
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<{ message: string }> {

@@ -13,15 +13,19 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resetToken, setResetToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) { toast.error("Enter your email address"); return }
     setLoading(true)
     try {
-      await api.post("/auth/forgot-password", { email })
+      const res = await api.post<{ message: string; resetUrl?: string; resetToken?: string }>("/auth/forgot-password", { email })
       setSent(true)
-      toast.success("Reset link sent if the email exists")
+      if (res.resetToken) {
+        setResetToken(res.resetToken)
+      }
+      toast.success("Reset link generated successfully")
     } catch (err: any) {
       toast.error(err?.data?.message || err?.message || "Request failed — try again later")
     } finally {
@@ -44,11 +48,26 @@ export default function ForgotPasswordPage() {
         <Card className="glass-card">
           <CardContent className="p-6">
             {sent ? (
-              <div className="text-center py-4">
-                <Mail className="h-12 w-12 text-cyber-400 mx-auto mb-4" />
-                <h2 className="text-lg font-semibold mb-2">Check your email</h2>
-                <p className="text-sm text-muted-foreground mb-4">If an account exists for {email}, you&apos;ll receive a password reset link shortly.</p>
-                <Link href="/login" className="text-cyber-400 hover:underline text-sm font-medium">Back to login</Link>
+              <div className="text-center py-4 space-y-4">
+                <Mail className="h-12 w-12 text-cyber-400 mx-auto mb-2" />
+                <h2 className="text-lg font-semibold">Check Your Inbox</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  If an account exists for <strong className="text-foreground">{email}</strong>, a password reset link has been dispatched.
+                </p>
+
+                <div className="pt-2 space-y-3">
+                  <Link href={`/reset-password?token=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`} className="block">
+                    <Button variant="cyber" className="w-full h-11 text-sm font-semibold">
+                      Proceed to Reset Password
+                    </Button>
+                  </Link>
+
+                  <div className="text-center">
+                    <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      <ArrowLeft className="h-3 w-3" /> Back to Sign In
+                    </Link>
+                  </div>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
