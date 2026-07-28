@@ -187,11 +187,6 @@ export const Header = memo(function Header() {
               )}
             </div>
             <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/help" className="flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-violet-400" /> Help & Knowledge Guide
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/settings" className="flex items-center gap-2">
                 <User className="h-4 w-4" /> Account Settings
               </Link>
@@ -209,6 +204,11 @@ export const Header = memo(function Header() {
             <DropdownMenuItem asChild className="cursor-pointer text-destructive focus:text-destructive">
               <Link href="/panic-mode" className="flex items-center gap-2">
                 <Flame className="h-4 w-4" /> Panic Mode Lockdown
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/help" className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-violet-400" /> Help & Knowledge Guide
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

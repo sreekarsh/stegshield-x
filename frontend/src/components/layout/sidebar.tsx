@@ -44,7 +44,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 const navigation = [
   { section: "Core", items: [
     { name: "Dashboard", href: "/home", icon: LayoutDashboard },
-    { name: "Help & FAQ", href: "/help", icon: HelpCircle },
     { name: "Secure Messaging", href: "/secure-messaging", icon: MessageSquare },
     { name: "Steganography", href: "/steganography", icon: Eye },
     { name: "Image Encryption", href: "/image-encryption", icon: Image },
@@ -80,6 +79,7 @@ const navigation = [
     { name: "Audit Logging", href: "/audit-logging", icon: ScrollText },
     { name: "Reports", href: "/reports", icon: FileText },
     { name: "Vault", href: "/vault", icon: Database },
+    { name: "Help & FAQ", href: "/help", icon: HelpCircle },
   ]},
 ]
 
