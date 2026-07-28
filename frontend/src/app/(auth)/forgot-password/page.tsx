@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import toast from "react-hot-toast"
+import { api } from "@/lib/api"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -18,21 +19,11 @@ export default function ForgotPasswordPage() {
     if (!email) { toast.error("Enter your email address"); return }
     setLoading(true)
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
-      const res = await fetch(`${API}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
-      if (res.ok) {
-        setSent(true)
-        toast.success("Reset link sent if the email exists")
-      } else {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.message || "Request failed — try again later")
-      }
-    } catch {
-      toast.error("Network error — check your connection")
+      await api.post("/auth/forgot-password", { email })
+      setSent(true)
+      toast.success("Reset link sent if the email exists")
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || "Request failed — try again later")
     } finally {
       setLoading(false)
     }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import toast from "react-hot-toast"
+import { api } from "@/lib/api"
 
 function ResetForm() {
   const searchParams = useSearchParams()
@@ -25,21 +26,11 @@ function ResetForm() {
     if (password !== confirm) { toast.error("Passwords do not match"); return }
     setLoading(true)
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
-      const res = await fetch(`${API}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, token, password }),
-      })
-      if (res.ok) {
-        setDone(true)
-        toast.success("Password reset successfully")
-      } else {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.message || "Reset failed")
-      }
-    } catch {
-      toast.error("Network error — check your connection")
+      await api.post("/auth/reset-password", { email, token, password })
+      setDone(true)
+      toast.success("Password reset successfully")
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || "Reset failed")
     } finally {
       setLoading(false)
     }

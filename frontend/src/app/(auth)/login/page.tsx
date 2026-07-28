@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Shield, Eye, EyeOff, Github, Chrome } from "lucide-react"
@@ -15,13 +15,31 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const { login } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: "", password: "" })
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("stegshield_remember_email")
+      if (savedEmail) {
+        setForm((prev) => ({ ...prev, email: savedEmail }))
+        setRememberMe(true)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
+      if (typeof window !== "undefined") {
+        if (rememberMe) {
+          localStorage.setItem("stegshield_remember_email", form.email)
+        } else {
+          localStorage.removeItem("stegshield_remember_email")
+        }
+      }
       await login(form.email, form.password)
       toast.success("Welcome back!")
       const redirect = searchParams.get("redirect")
@@ -109,7 +127,12 @@ function LoginForm() {
 
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                  <input type="checkbox" className="rounded border-border" />
+                  <input
+                    type="checkbox"
+                    className="rounded border-border accent-violet-600"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
                   Remember me
                 </label>
                 <Link href="/forgot-password" className="text-sm text-cyber-400 hover:underline">
