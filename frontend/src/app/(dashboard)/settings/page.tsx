@@ -210,8 +210,8 @@ export default function SettingsPage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be under 2MB")
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Image must be under 20MB")
       return
     }
     setUploadingAvatar(true)
@@ -457,7 +457,7 @@ export default function SettingsPage() {
                     {uploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
                     {uploadingAvatar ? "Uploading..." : "Upload Photo"}
                   </Button>
-                  <p className="text-[10px] text-muted-foreground text-center">JPG, PNG or GIF. Max 2MB.</p>
+                  <p className="text-[10px] text-muted-foreground text-center">JPG, PNG, GIF or WebP. Max 20MB.</p>
                 </CardContent>
               </Card>
 

@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, UseInterceptors, UploadedFile } from "@nestjs/common"
+import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, UseInterceptors, UploadedFile } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
 import { diskStorage } from "multer"
 import { extname, join } from "path"
@@ -36,7 +36,7 @@ export class UsersController {
         cb(null, `avatar-${Date.now()}${extname(file.originalname)}`)
       },
     }),
-    limits: { fileSize: 2 * 1024 * 1024 },
+    limits: { fileSize: 20 * 1024 * 1024 },
   }))
   @ApiConsumes("multipart/form-data")
   async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
