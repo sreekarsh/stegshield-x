@@ -39,6 +39,7 @@ const features = [
     description: "End-to-end client-side AES-GCM encryption with 24-hour self-destruct & 15-second one-time view mode.",
     gradient: "from-violet-500 to-purple-600",
     category: "Encryption",
+    href: "/secure-messaging",
   },
   {
     icon: Eye,
@@ -46,6 +47,7 @@ const features = [
     description: "Hide covert payloads inside PNG, BMP, and WAV carriers with spatial LSB and append steganography.",
     gradient: "from-cyan-500 to-blue-600",
     category: "Forensics & Stego",
+    href: "/steganography",
   },
   {
     icon: Lock,
@@ -53,6 +55,7 @@ const features = [
     description: "AES-256-GCM, RSA-4096, ECC, and Argon2id password key derivation with zero server-side key exposure.",
     gradient: "from-emerald-500 to-teal-600",
     category: "Encryption",
+    href: "/file-encryption",
   },
   {
     icon: FileSearch,
@@ -60,6 +63,7 @@ const features = [
     description: "Spatial entropy calculation, string carving, EXIF metadata cleaning, and Error Level Analysis.",
     gradient: "from-orange-500 to-red-600",
     category: "Forensics & Stego",
+    href: "/digital-forensics",
   },
   {
     icon: Cpu,
@@ -67,6 +71,7 @@ const features = [
     description: "AI-powered threat analysis, automated steganography probability grading, and vulnerability scoring.",
     gradient: "from-pink-500 to-rose-600",
     category: "AI & Intelligence",
+    href: "/ai-assistant",
   },
   {
     icon: Share2,
@@ -74,6 +79,7 @@ const features = [
     description: "Password-protected links with expiration dates, IP range restrictions, and strict download caps.",
     gradient: "from-indigo-500 to-violet-600",
     category: "Collaboration",
+    href: "/secure-sharing",
   },
   {
     icon: Users,
@@ -81,6 +87,7 @@ const features = [
     description: "5-Tier Role-Based Access Control (Admin, Owner, Editor, Viewer, Investigator) with immutable audit logs.",
     gradient: "from-yellow-500 to-amber-600",
     category: "Collaboration",
+    href: "/team-workspace",
   },
   {
     icon: Shield,
@@ -88,6 +95,7 @@ const features = [
     description: "Cryptographic chain-of-custody tracking with SHA-256 fingerprint verification and legal audit logs.",
     gradient: "from-sky-500 to-indigo-600",
     category: "Forensics & Stego",
+    href: "/evidence-vault",
   },
 ]
 
@@ -440,37 +448,38 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredFeatures.map((feature) => (
-              <Card
-                key={feature.title}
-                className="group relative overflow-hidden p-6 rounded-2xl border border-violet-500/20 bg-gradient-to-b from-violet-950/10 via-background to-background hover:border-violet-500/50 hover:shadow-[0_0_30px_rgba(124,58,237,0.2)] transition-all duration-300 flex flex-col justify-between"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/15 transition-all" />
+              <Link key={feature.title} href={feature.href} className="block h-full">
+                <Card
+                  className="group relative overflow-hidden p-6 rounded-2xl border border-violet-500/20 bg-gradient-to-b from-violet-950/10 via-background to-background hover:border-violet-500/50 hover:shadow-[0_0_30px_rgba(124,58,237,0.2)] transition-all duration-300 flex flex-col justify-between h-full cursor-pointer"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/15 transition-all" />
 
-                <div>
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} p-2.5 mb-5 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="w-full h-full text-white" />
+                  <div>
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} p-2.5 mb-5 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <feature.icon className="w-full h-full text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 group-hover:text-violet-300 transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">
+                      {feature.description}
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2 group-hover:text-violet-300 transition-colors">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">
-                    {feature.description}
-                  </p>
-                </div>
 
-                <div className="pt-4 border-t border-border/40 flex items-center justify-between text-xs text-violet-400 font-medium group-hover:text-cyan-300 transition-colors">
-                  <span>Explore Module</span>
-                  <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </div>
-              </Card>
+                  <div className="pt-4 border-t border-border/40 flex items-center justify-between text-xs text-violet-400 font-medium group-hover:text-cyan-300 transition-colors">
+                    <span>Open Module</span>
+                    <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Compliance & Trust Section */}
-      <section id="compliance" className="py-20 bg-violet-950/10 border-y border-violet-500/10">
-        <div className="container mx-auto px-4 sm:px-6">
+      {/* Compliance & Security Section */}
+      <section id="security" className="py-20 bg-violet-950/10 border-y border-violet-500/10">
+        <div id="compliance" className="container mx-auto px-4 sm:px-6">
           <div className="text-center max-w-3xl mx-auto mb-12">
             <Award className="h-10 w-10 text-cyan-400 mx-auto mb-4" />
             <h2 className="text-3xl font-bold tracking-tight mb-3">
