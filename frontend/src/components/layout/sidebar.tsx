@@ -142,10 +142,10 @@ export const Sidebar = memo(function Sidebar() {
                       key={item.name}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-200",
                         isActive
-                          ? "bg-cyber-500/10 text-cyber-400 font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                          ? "bg-gradient-to-r from-violet-600/25 to-indigo-600/15 text-cyan-300 font-semibold border border-violet-500/40 shadow-[0_0_15px_rgba(124,58,237,0.3)]"
+                          : "text-muted-foreground hover:text-white hover:bg-violet-500/10 hover:border hover:border-violet-500/20",
                         !sidebarOpen && "justify-center px-2"
                       )}
                       title={sidebarOpen ? undefined : item.name}
