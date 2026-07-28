@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield } from "lucide-react"
+import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -151,6 +151,13 @@ export const Header = memo(function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Help Icon Link */}
+        <Link href="/help">
+          <Button variant="ghost" size="icon" aria-label="Open Help & Knowledge Center">
+            <HelpCircle className="h-5 w-5" />
+          </Button>
+        </Link>
+
         {/* Settings Icon Link */}
         <Link href="/settings">
           <Button variant="ghost" size="icon" aria-label="Open settings">
@@ -179,6 +186,11 @@ export const Header = memo(function Header() {
                 </Badge>
               )}
             </div>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/help" className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-violet-400" /> Help & Knowledge Guide
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/settings" className="flex items-center gap-2">
                 <User className="h-4 w-4" /> Account Settings

@@ -36,6 +36,7 @@ import {
   Database,
   Fingerprint,
   Globe,
+  HelpCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -43,6 +44,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 const navigation = [
   { section: "Core", items: [
     { name: "Dashboard", href: "/home", icon: LayoutDashboard },
+    { name: "Help & FAQ", href: "/help", icon: HelpCircle },
     { name: "Secure Messaging", href: "/secure-messaging", icon: MessageSquare },
     { name: "Steganography", href: "/steganography", icon: Eye },
     { name: "Image Encryption", href: "/image-encryption", icon: Image },
