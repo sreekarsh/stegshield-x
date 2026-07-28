@@ -169,7 +169,7 @@ export const Header = memo(function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-cyber-500/20 hover:ring-cyber-500/50 transition-all">
-              <AvatarImage src={user?.avatar || ""} />
+              <AvatarImage src={user?.avatar || undefined} />
               <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
                 {initials}
               </AvatarFallback>
