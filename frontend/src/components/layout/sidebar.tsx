@@ -132,8 +132,8 @@ export const Sidebar = memo(function Sidebar() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 h-[calc(100vh-4rem)] pb-16">
-        <nav className="p-2 space-y-4">
+      <ScrollArea className="flex-1 h-[calc(100vh-4rem)]">
+        <nav className="p-2 space-y-4 pb-28">
           {navigation.map((section) => (
             <div key={section.section}>
               {sidebarOpen && (

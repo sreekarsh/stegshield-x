@@ -12,8 +12,11 @@ import { api } from "@/lib/api"
 
 function ResetForm() {
   const searchParams = useSearchParams()
-  const token = searchParams.get("token") || ""
-  const email = searchParams.get("email") || ""
+  const urlToken = searchParams.get("token") || ""
+  const urlEmail = searchParams.get("email") || ""
+
+  const [emailInput, setEmailInput] = useState(urlEmail)
+  const [tokenInput, setTokenInput] = useState(urlToken)
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [loading, setLoading] = useState(false)
@@ -21,16 +24,25 @@ function ResetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !email) { toast.error("Invalid reset link"); return }
+    const targetEmail = emailInput || urlEmail
+    const targetToken = tokenInput || urlToken
+
+    if (!targetEmail) { toast.error("Please enter your email address"); return }
+    if (!targetToken) { toast.error("Please enter your reset token"); return }
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return }
     if (password !== confirm) { toast.error("Passwords do not match"); return }
+
     setLoading(true)
     try {
-      await api.post("/auth/reset-password", { email, token, password })
+      await api.post("/auth/reset-password", {
+        email: targetEmail.trim(),
+        token: targetToken.trim(),
+        password,
+      })
       setDone(true)
       toast.success("Password reset successfully")
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || "Reset failed")
+      toast.error(err?.data?.message || err?.message || "Reset failed — invalid or expired token")
     } finally {
       setLoading(false)
     }
@@ -45,19 +57,12 @@ function ResetForm() {
             <span className="text-xl font-bold bg-gradient-to-r from-cyber-500 to-cyan-400 bg-clip-text text-transparent">StegShield X</span>
           </Link>
           <h1 className="text-2xl font-bold mb-2">Reset Password</h1>
-          <p className="text-muted-foreground">Choose a new password for your account</p>
+          <p className="text-muted-foreground">Enter your reset token and new password</p>
         </div>
 
         <Card className="glass-card">
           <CardContent className="p-6">
-            {!token || !email ? (
-              <div className="text-center py-4">
-                <p className="text-destructive mb-4">Invalid or missing reset link.</p>
-                <Link href="/forgot-password" className="text-cyber-400 hover:underline text-sm font-medium">
-                  Request a new reset link
-                </Link>
-              </div>
-            ) : done ? (
+            {done ? (
               <div className="text-center py-4">
                 <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
                 <h2 className="text-lg font-semibold mb-2">Password reset successful</h2>
@@ -67,20 +72,54 @@ function ResetForm() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Email</label>
-                  <Input type="email" className="mt-1" value={email} disabled />
+                  <label className="text-sm font-medium">Email Address</label>
+                  <Input
+                    type="email"
+                    className="mt-1"
+                    placeholder="you@example.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">New password</label>
-                  <Input type="password" className="mt-1" placeholder="Min 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                  <label className="text-sm font-medium">Reset Token / Security Code</label>
+                  <Input
+                    type="text"
+                    className="mt-1 font-mono text-xs"
+                    placeholder="Paste or enter reset token received in email"
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Confirm password</label>
-                  <Input type="password" className="mt-1" placeholder="Repeat password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} />
+                  <label className="text-sm font-medium">New Password</label>
+                  <Input
+                    type="password"
+                    className="mt-1"
+                    placeholder="Min 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Confirm New Password</label>
+                  <Input
+                    type="password"
+                    className="mt-1"
+                    placeholder="Repeat password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    required
+                    minLength={8}
+                  />
                 </div>
                 <Button variant="cyber" className="w-full" type="submit" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-                  Reset Password
+                  Update Password
                 </Button>
                 <div className="text-center">
                   <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
