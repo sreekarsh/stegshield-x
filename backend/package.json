@@ -7,7 +7,7 @@
     "start": "nest start",
     "start:dev": "node scripts/kill-port.mjs 4000 && nest start --watch",
     "start:dev:fast": "node scripts/kill-port.mjs 4000 && nest start --watch --builder=tsc",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/main.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
