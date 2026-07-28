@@ -54,20 +54,21 @@ function redirectToLogin() {
   }
 }
 
-const FETCH_TIMEOUT = 15000
+const FETCH_TIMEOUT = 30000 // 30 seconds for normal requests
+const UPLOAD_TIMEOUT = 180000 // 3 minutes for uploads/downloads/AI analysis
 
 async function requestWithTimeout(url: string, options: RequestInit, timeout = FETCH_TIMEOUT): Promise<Response> {
   const controller = new AbortController()
   const id = setTimeout(() => controller.abort(), timeout)
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal })
+    const response = await fetch(url, { ...options, signal: options.signal || controller.signal })
     return response
   } finally {
     clearTimeout(id)
   }
 }
 
-async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
+async function request<T>(endpoint: string, options: ApiOptions = {}, retried = false): Promise<T> {
   const { params, ...fetchOptions } = options
 
   let url = `${API_BASE}${endpoint}`
@@ -84,15 +85,12 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
     ...fetchOptions.headers,
   }
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
   try {
-    const response = await fetch(url, {
+    const response = await requestWithTimeout(url, {
       ...fetchOptions,
       headers,
       credentials: "include",
-      signal: fetchOptions.signal || controller.signal,
-    })
+    }, FETCH_TIMEOUT)
 
     if (response.status === 401) {
       const refreshed = await tryRefreshToken()
@@ -112,17 +110,21 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "An error occurred" }))
+      const error = await response.json().catch(() => ({ message: "Request failed" }))
       throw new ApiError(response.status, error.message || "Request failed", error)
     }
 
     return response.json()
   } catch (e: unknown) {
     if (e instanceof ApiError) throw e
-    const message = e instanceof DOMException && e.name === "AbortError" ? "Request timed out" : "Network error — unable to reach server"
+    // Transient network error retry (1 attempt)
+    if (!retried && !(e instanceof DOMException && e.name === "AbortError")) {
+      await new Promise(r => setTimeout(r, 300))
+      return request<T>(endpoint, options, true)
+    }
+    const isTimeout = e instanceof DOMException && e.name === "AbortError"
+    const message = isTimeout ? "Request timed out — server took too long to respond" : (e instanceof Error ? e.message : "Network error — unable to reach server")
     throw new ApiError(0, message)
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -163,7 +165,7 @@ export const api = {
       },
       body: formData,
       credentials: "include",
-    })
+    }, UPLOAD_TIMEOUT)
 
     try {
       let response = await doFetch(token)
@@ -182,13 +184,13 @@ export const api = {
       }
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Upload failed" }))
-        throw new ApiError(response.status, error.message, error)
+        throw new ApiError(response.status, error.message || "Upload failed", error)
       }
       return response.json()
     } catch (e: unknown) {
       if (e instanceof ApiError) throw e
-      if (e instanceof DOMException && e.name === "AbortError") throw new ApiError(0, "Upload timed out")
-      throw new ApiError(0, "Network error — unable to reach server")
+      if (e instanceof DOMException && e.name === "AbortError") throw new ApiError(0, "Upload timed out — process took longer than 3 minutes")
+      throw new ApiError(0, e instanceof Error ? e.message : "Network error — unable to reach server")
     }
   },
 
@@ -201,12 +203,12 @@ export const api = {
       credentials: "include" as const,
     })
     try {
-      let response = await requestWithTimeout(`${API_BASE}${endpoint}`, options(token ?? undefined))
+      let response = await requestWithTimeout(`${API_BASE}${endpoint}`, options(token ?? undefined), UPLOAD_TIMEOUT)
       if (response.status === 401) {
         const refreshed = await tryRefreshToken()
         if (refreshed) {
           token = getAccessToken()
-          response = await requestWithTimeout(`${API_BASE}${endpoint}`, options(token ?? undefined))
+          response = await requestWithTimeout(`${API_BASE}${endpoint}`, options(token ?? undefined), UPLOAD_TIMEOUT)
           if (response.ok) return response.blob()
         }
         redirectToLogin()
@@ -217,7 +219,7 @@ export const api = {
     } catch (e: unknown) {
       if (e instanceof ApiError) throw e
       if (e instanceof DOMException && e.name === "AbortError") throw new ApiError(0, "Download timed out")
-      throw new ApiError(0, "Network error — unable to reach server")
+      throw new ApiError(0, e instanceof Error ? e.message : "Network error — unable to reach server")
     }
   },
 
@@ -230,7 +232,7 @@ export const api = {
       },
       body: formData,
       credentials: "include",
-    })
+    }, UPLOAD_TIMEOUT)
     try {
       let response = await doFetch(token)
       if (response.status === 401) {
@@ -245,13 +247,13 @@ export const api = {
       }
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Request failed" }))
-        throw new ApiError(response.status, error.message, error)
+        throw new ApiError(response.status, error.message || "Request failed", error)
       }
       return response.blob()
     } catch (e: unknown) {
       if (e instanceof ApiError) throw e
       if (e instanceof DOMException && e.name === "AbortError") throw new ApiError(0, "Request timed out")
-      throw new ApiError(0, "Network error — unable to reach server")
+      throw new ApiError(0, e instanceof Error ? e.message : "Network error — unable to reach server")
     }
   },
 }
