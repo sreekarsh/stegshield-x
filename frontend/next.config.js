@@ -36,7 +36,8 @@ const nextConfig = {
   async rewrites() {
     const isProd = process.env.NODE_ENV === 'production'
     const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || process.env.BACKEND_PORT || '4000'
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || (isProd ? 'https://stegshield-backend.onrender.com/api' : `http://127.0.0.1:${backendPort}/api`)
+    const envUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL
+    const backendUrl = envUrl && envUrl.trim() ? envUrl : (isProd ? 'https://stegshield-backend.onrender.com/api' : `http://127.0.0.1:${backendPort}/api`)
     return [
       {
         source: '/api/:path*',
