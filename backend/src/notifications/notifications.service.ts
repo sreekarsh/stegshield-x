@@ -7,13 +7,15 @@ export class NotificationsService {
     return this.prisma.notification.create({ data: { userId, title, message, type } })
   }
   async getAll(userId: string, page = 1, limit = 20) {
-    const skip = (page < 1 ? 0 : page - 1) * limit
+    const p = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
+    const l = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 20
+    const skip = (p - 1) * l
     const [items, total, unreadCount] = await Promise.all([
-      this.prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, skip, take: limit }),
+      this.prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, skip, take: l }),
       this.prisma.notification.count({ where: { userId } }),
       this.prisma.notification.count({ where: { userId, isRead: false } }),
     ])
-    return { items, total, unreadCount, page: Math.max(1, page), limit }
+    return { items, total, unreadCount, page: p, limit: l }
   }
   async markRead(userId: string, id: string) {
     const notif = await this.prisma.notification.findUnique({ where: { id } })

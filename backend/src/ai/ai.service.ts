@@ -9,8 +9,8 @@ export class AiService {
   private readonly apiKey: string
 
   constructor() {
-    this.baseUrl = process.env.AI_SERVICE_URL || "http://localhost:8000"
-    this.apiKey = process.env.AI_API_KEY || "stegshield-ai-key-change-in-production"
+    this.baseUrl = (process.env.AI_SERVICE_URL || "http://localhost:8000").replace(/['"]/g, "").trim()
+    this.apiKey = (process.env.AI_API_KEY || "stegshield-ai-key-change-in-production").replace(/['"]/g, "").trim()
   }
 
   private getAgent(url: string) {

@@ -2,6 +2,7 @@
 import { NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common"
 import { MessagesService } from "./messages.service"
 import { PrismaService } from "../prisma/prisma.service"
+import { NotificationsService } from "../notifications/notifications.service"
 
 describe("MessagesService", () => {
   let service: MessagesService
@@ -26,7 +27,11 @@ describe("MessagesService", () => {
     }
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MessagesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        MessagesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: { create: jest.fn().mockResolvedValue({}) } },
+      ],
     }).compile()
 
     service = module.get<MessagesService>(MessagesService)

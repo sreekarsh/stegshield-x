@@ -3,6 +3,7 @@ import { NotFoundException, ForbiddenException, BadRequestException } from "@nes
 import { TeamService } from "./team.service"
 import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
+import { NotificationsService } from "../notifications/notifications.service"
 
 describe("TeamService", () => {
   let service: TeamService
@@ -18,9 +19,15 @@ describe("TeamService", () => {
       auditLog: { create: jest.fn() },
     }
     mail = { sendInvitation: jest.fn().mockResolvedValue(true) }
+    const notifications = { create: jest.fn().mockResolvedValue({}) }
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TeamService, { provide: PrismaService, useValue: prisma }, { provide: MailService, useValue: mail }],
+      providers: [
+        TeamService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: MailService, useValue: mail },
+        { provide: NotificationsService, useValue: notifications },
+      ],
     }).compile()
 
     service = module.get<TeamService>(TeamService)

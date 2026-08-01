@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from "@nes
 import { SharingService } from "./sharing.service"
 import { AuditService } from "../audit/audit.service"
 import { PrismaService } from "../prisma/prisma.service"
+import { NotificationsService } from "../notifications/notifications.service"
 
 describe("SharingService", () => {
   let service: SharingService
@@ -13,6 +14,22 @@ describe("SharingService", () => {
     prisma = {
       sharedLink: {
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: "link-1", ...data, downloads: 0, createdAt: new Date() })),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "link-1",
+          url: "abc123",
+          filePath: "/tmp/file.txt",
+          fileName: "file.txt",
+          fileSize: 123,
+          downloads: 0,
+          password: null,
+          maxDownloads: null,
+          expiresAt: null,
+          isIPRestricted: false,
+          allowedIPs: [],
+          isGeoRestricted: false,
+          userId: "user-1",
+          createdAt: new Date(),
+        }),
         findUnique: jest.fn().mockResolvedValue({
           id: "link-1",
           url: "abc123",
@@ -49,6 +66,7 @@ describe("SharingService", () => {
         SharingService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: audit },
+        { provide: NotificationsService, useValue: { create: jest.fn().mockResolvedValue({}) } },
       ],
     }).compile()
 
@@ -91,19 +109,19 @@ describe("SharingService", () => {
   })
 
   it("should throw when link not found", async () => {
-    prisma.sharedLink.findUnique = jest.fn().mockResolvedValue(null)
+    prisma.sharedLink.findFirst = jest.fn().mockResolvedValue(null)
     await expect(service.accessLink("missing", "127.0.0.1")).rejects.toThrow(NotFoundException)
   })
 
   it("should reject invalid password on verifyAccess", async () => {
-    prisma.sharedLink.findUnique = jest.fn().mockResolvedValue({
+    prisma.sharedLink.findFirst = jest.fn().mockResolvedValue({
       id: "link-1",
       url: "abc123",
       filePath: "/tmp/file.txt",
       fileName: "file.txt",
       fileSize: 123,
       downloads: 0,
-      password: await require("argon2").hash("correct"),
+      password: "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RkJWzcz9+QllUv6h203t/Jv6394j349023",
       maxDownloads: null,
       expiresAt: null,
       isIPRestricted: false,

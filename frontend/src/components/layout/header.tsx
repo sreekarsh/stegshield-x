@@ -77,6 +77,19 @@ export const Header = memo(function Header() {
     }
   }
 
+  const handleNotificationClick = async (n: NotificationItem) => {
+    if (!n.isRead) {
+      setRecentNotifications(prev => (prev || []).map(x => (x.id === n.id ? { ...x, isRead: true } : x)))
+      setUnreadCount(c => Math.max(0, c - 1))
+      try {
+        await api.patch(`/notifications/${n.id}/read`)
+      } catch {
+        // keep optimistic state even if the request fails silently
+      }
+    }
+    router.push("/notifications")
+  }
+
   const handleLogout = async () => {
     try {
       await logout()
@@ -104,7 +117,7 @@ export const Header = memo(function Header() {
         <ThemeToggle />
 
         {/* Notifications Dropdown */}
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => { if (open) fetchNotifications() }}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications dropdown">
               <Bell className="h-5 w-5" />
@@ -134,16 +147,17 @@ export const Header = memo(function Header() {
             ) : (
               <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
                 {(recentNotifications || []).map((n) => (
-                  <div
+                  <button
                     key={n.id}
-                    className={`p-2 rounded-md text-xs transition-colors ${n.isRead ? "bg-transparent opacity-70" : "bg-muted/40 font-medium"}`}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`w-full text-left p-2 rounded-md text-xs transition-colors cursor-pointer hover:bg-muted/60 ${n.isRead ? "bg-transparent opacity-70" : "bg-muted/40 font-medium"}`}
                   >
                     <p className="font-semibold text-foreground">{n.title}</p>
                     <p className="text-muted-foreground truncate">{n.message}</p>
                     <span className="text-[10px] text-muted-foreground opacity-60 mt-0.5 block">
                       {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

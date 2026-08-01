@@ -383,7 +383,11 @@ export class AuthService {
       version: user.resetTokenVersion,
     })
     const appUrl = process.env.APP_URL || "http://localhost:3000"
-    const resetUrl = `${appUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
+    const localIp = "192.168.115.2"
+    const autoResetUrl = `${appUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
+    const manualResetUrl = `${appUrl}/reset-password?email=${encodeURIComponent(email)}`
+    const mobileAutoResetUrl = `http://${localIp}:3000/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
+    const mobileManualResetUrl = `http://${localIp}:3000/reset-password?email=${encodeURIComponent(email)}`
 
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_PASSWORD_FORGOT, "user", { email })
 
@@ -397,19 +401,85 @@ export class AuthService {
           secure: process.env.SMTP_SECURE === "true",
           auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
         })
+        const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
+<table width="540" cellpadding="0" cellspacing="0" role="presentation" style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155">
+  <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:28px;text-align:center">
+    <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff">StegShield X</h1>
+    <p style="margin:4px 0 0;color:#c7d2fe;font-size:13px;font-weight:500">Password Reset Security Center</p>
+  </td></tr>
+  <tr><td style="padding:28px 28px 16px;color:#cbd5e1;font-size:14px;line-height:1.6">
+    <p style="margin:0 0 12px">Hello,</p>
+    <p style="margin:0 0 16px">A password reset request was initiated for your account (<strong style="color:#ffffff">${email}</strong>). Copy your 1-hour reset token or click either link below:</p>
+    
+    <!-- Prominent Token Code Box -->
+    <div style="background:#090d16;border:1px solid #3b82f6;border-radius:8px;padding:16px;margin:16px 0">
+      <p style="margin:0 0 6px;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700">Security Reset Token (1-Hour Validity)</p>
+      <code style="display:block;font-family:monospace;font-size:12px;color:#38bdf8;word-break:break-all;line-height:1.5;background:#030712;padding:10px;border-radius:6px;border:1px solid #1e293b">${resetToken}</code>
+    </div>
+
+    <p style="margin:20px 0 12px;font-size:13px;color:#94a3b8;font-weight:600">
+      PC / Desktop Browser Links:
+    </p>
+
+    <!-- Dual Action Buttons -->
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:12px 0">
+      <tr>
+        <td style="padding:0 0 12px 0">
+          <a href="${autoResetUrl}" style="display:block;padding:14px;background:#6366f1;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;text-align:center;box-shadow:0 4px 12px rgba(99,102,241,0.4)">
+            Option 1: Auto-Fill Token & Set New Password &rarr;
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0">
+          <a href="${manualResetUrl}" style="display:block;padding:14px;background:#1e293b;color:#cbd5e1;text-decoration:none;border-radius:8px;font-weight:600;font-size:13px;text-align:center;border:1px solid #475569">
+            Option 2: Open Form to Enter Token Manually &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:20px 0 8px;font-size:12px;color:#94a3b8;font-weight:600">
+      Mobile / Wi-Fi Network Links (if testing from phone):
+    </p>
+    <p style="margin:0 0 4px;font-size:12px;color:#64748b;word-break:break-all">
+      Mobile Auto-Fill: <a href="${mobileAutoResetUrl}" style="color:#38bdf8">${mobileAutoResetUrl}</a>
+    </p>
+    <p style="margin:0 0 16px;font-size:12px;color:#64748b;word-break:break-all">
+      Mobile Manual Form: <a href="${mobileManualResetUrl}" style="color:#38bdf8">${mobileManualResetUrl}</a>
+    </p>
+
+    <p style="margin:20px 0 0;font-size:12px;color:#64748b">
+      This token expires in 60 minutes. If you did not request a password reset, your account remains completely secure.
+    </p>
+  </td></tr>
+  <tr><td style="padding:16px 28px;border-top:1px solid #334155;text-align:center">
+    <p style="font-size:11px;color:#64748b;margin:0">&copy; 2026 StegShield X &mdash; Zero Trust Security System</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>`
+
+        const emailText = `StegShield X — Password Reset Request\n\nReset Token for ${email}:\n${resetToken}\n\nDesktop Auto-Fill: ${autoResetUrl}\nDesktop Manual Form: ${manualResetUrl}\n\nMobile Auto-Fill: ${mobileAutoResetUrl}\nMobile Manual Form: ${mobileManualResetUrl}\n\nThis token expires in 1 hour.`
+
         await transporter.sendMail({
           from: process.env.SMTP_FROM || "noreply@stegshield.com",
           to: email,
-          subject: "StegShield X - Password Reset",
-          text: `Reset your password here: ${resetUrl}\n\nThis link expires in 1 hour.\n\nIf you did not request this, you can safely ignore this email.`,
-          html: `<p>Reset your password <a href="${resetUrl}">here</a>.</p><p>This link expires in 1 hour.</p><p>If you did not request this, you can safely ignore this email.</p>`,
+          subject: "StegShield X — Password Reset Options & Security Token",
+          text: emailText,
+          html: emailHtml,
         })
       } else if (process.env.NODE_ENV !== "production") {
-        console.log(`[DEV] Password reset link for ${email}: ${resetUrl}`)
+        console.log(`[DEV] Password reset for ${email}:\nToken: ${resetToken}\nDesktop Link: ${autoResetUrl}\nMobile Link: ${mobileAutoResetUrl}`)
       }
     } catch {
       if (process.env.NODE_ENV !== "production") {
-        console.log(`[DEV] Password reset link for ${email}: ${resetUrl}`)
+        console.log(`[DEV] Password reset for ${email}:\nToken: ${resetToken}\nDesktop Link: ${autoResetUrl}\nMobile Link: ${mobileAutoResetUrl}`)
       }
     }
 

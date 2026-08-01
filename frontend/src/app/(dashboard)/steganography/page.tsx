@@ -226,7 +226,7 @@ export default function SteganographyPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = selectedFile!.name
+      a.download = selectedFile?.name || "stego-file"
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
       toast.success("Message embedded successfully")

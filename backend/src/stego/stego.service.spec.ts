@@ -59,6 +59,7 @@ describe("StegoService", () => {
       stegoFile: {
         create: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
       },
     }
@@ -197,16 +198,15 @@ describe("StegoService", () => {
   })
 
   describe("extract", () => {
-    const stegoRecord = {
-      id: "stego-1",
-      carrierFile: "carrier-1",
-      algorithm: "LSB-spatial",
-      encryption: "none",
-      hiddenDataSize: 5,
-    }
-
     beforeEach(() => {
-      prisma.stegoFile.findUnique.mockResolvedValue(stegoRecord)
+      prisma.stegoFile.findFirst.mockResolvedValue({
+        id: "stego-1",
+        userId: "user-1",
+        carrierFile: "carrier-1",
+        algorithm: "LSB-spatial",
+        encryption: "none",
+        hiddenDataSize: 5,
+      })
       prisma.evidence.findUnique.mockResolvedValue({
         id: "carrier-1",
         filePath: "/uploads/evidence/carrier-1.enc",
@@ -215,14 +215,14 @@ describe("StegoService", () => {
     })
 
     it("should reject missing fileId", async () => {
-      await expect(service.extract({ fileId: "" }))
+      await expect(service.extract("user-1", { fileId: "" }))
         .rejects.toThrow(BadRequestException)
     })
 
     it("should reject non-existent stego record", async () => {
-      prisma.stegoFile.findUnique.mockResolvedValue(null)
+      prisma.stegoFile.findFirst.mockResolvedValue(null)
 
-      await expect(service.extract({ fileId: "missing" }))
+      await expect(service.extract("user-1", { fileId: "missing" }))
         .rejects.toThrow(NotFoundException)
     })
 
@@ -230,7 +230,7 @@ describe("StegoService", () => {
       const stegoBuf = embedInLSB(carrierBuffer, Buffer.from("hello", "utf-8"))
       ;(fsMock.readFileSync as jest.Mock).mockReturnValue(stegoBuf)
 
-      const result = await service.extract({ fileId: "stego-1" })
+      const result = await service.extract("user-1", { fileId: "stego-1" })
       expect(result.message).toBe("hello")
     })
 
@@ -246,14 +246,14 @@ describe("StegoService", () => {
       const stegoBuf = embedInLSB(carrierBuffer, xorBuf)
       ;(fsMock.readFileSync as jest.Mock).mockReturnValue(stegoBuf)
 
-      const result = await service.extract({ fileId: "stego-1", key })
+      const result = await service.extract("user-1", { fileId: "stego-1", key })
       expect(result.message).toBe("decoded")
     })
 
     it("should reject non-existent carrier on disk", async () => {
       prisma.evidence.findUnique.mockResolvedValue(null)
 
-      await expect(service.extract({ fileId: "stego-1" }))
+      await expect(service.extract("user-1", { fileId: "stego-1" }))
         .rejects.toThrow("not found")
     })
   })
@@ -264,29 +264,24 @@ describe("StegoService", () => {
 
       const files = await service.getFiles("user-1")
       expect(files).toHaveLength(1)
-    })
-
-    it("should apply decoy mode filter", async () => {
-      prisma.stegoFile.findMany.mockResolvedValue([])
-
-      const files = await service.getFiles("user-1", true, "fake-vault")
-      expect(prisma.stegoFile.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: "user-1", id: "fake-vault" } }),
-      )
+      expect(prisma.stegoFile.findMany).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+        orderBy: { createdAt: "desc" },
+      })
     })
   })
 
-  describe("LSB roundtrip", () => {
-    it("should correctly embed and extract a message through the public API", async () => {
+  describe("roundtrip embed/extract", () => {
+    it("should embed and extract text payload successfully", async () => {
       prisma.evidence.findUnique.mockResolvedValue({
         id: "carrier-rt",
-        userId: "user-1",
-        filePath: "/uploads/evidence/carrier-rt.enc",
-        type: "image/png",
         name: "carrier.png",
+        filePath: "/uploads/evidence/carrier-rt.png",
+        type: "image/png",
       })
       prisma.stegoFile.create.mockResolvedValue({
         id: "stego-rt",
+        userId: "user-1",
         name: "stego_carrier.png",
         algorithm: "LSB-spatial",
         encryption: "none",
@@ -297,15 +292,16 @@ describe("StegoService", () => {
       const embedResult = await service.embed("user-1", { carrierId: "carrier-rt", message: msg })
       expect(embedResult.id).toBe("stego-rt")
 
-      prisma.stegoFile.findUnique.mockResolvedValue({
+      prisma.stegoFile.findFirst.mockResolvedValue({
         id: "stego-rt",
+        userId: "user-1",
         carrierFile: "carrier-rt",
         algorithm: "LSB-spatial",
         encryption: "none",
         hiddenDataSize: 11,
       })
 
-      const extractResult = await service.extract({ fileId: "stego-rt" })
+      const extractResult = await service.extract("user-1", { fileId: "stego-rt" })
       expect(extractResult.message).toBe(msg)
     })
   })

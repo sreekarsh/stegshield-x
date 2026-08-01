@@ -4,6 +4,7 @@ import { JwtService } from "@nestjs/jwt"
 import { PanicService } from "./panic.service"
 import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
+import { NotificationsService } from "../notifications/notifications.service"
 
 describe("PanicService", () => {
   let service: PanicService
@@ -47,6 +48,7 @@ describe("PanicService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
         { provide: MailService, useValue: mockMail },
+        { provide: NotificationsService, useValue: { create: jest.fn().mockResolvedValue({}) } },
       ],
     }).compile()
 

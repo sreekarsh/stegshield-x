@@ -51,8 +51,10 @@ interface Invitation {
 
 interface TeamStats {
   totalMembers: number
+  ownerCount?: number
   adminCount: number
   editorCount: number
+  investigatorCount?: number
   viewerCount: number
   evidenceCount: number
   casesCount: number
@@ -71,15 +73,19 @@ interface ActivityLog {
 }
 
 const ROLE_ICONS: Record<string, typeof Shield> = {
+  OWNER: ShieldAlert,
   ADMIN: ShieldAlert,
   EDITOR: ShieldCheck,
+  INVESTIGATOR: Search,
   VIEWER: Shield,
 }
 
 const ROLE_COLORS: Record<string, string> = {
+  OWNER: "text-purple-400",
   ADMIN: "text-cyber-400",
-  EDITOR: "text-success",
-  VIEWER: "text-muted-foreground",
+  EDITOR: "text-emerald-400",
+  INVESTIGATOR: "text-amber-400",
+  VIEWER: "text-slate-400",
 }
 
 export default function TeamWorkspacePage() {
@@ -314,9 +320,17 @@ export default function TeamWorkspacePage() {
           </Card>
           <Card className="glass-card">
             <CardContent className="p-4 text-center">
-              <ShieldAlert className="h-6 w-6 text-success mx-auto mb-1" />
-              <div className="text-2xl font-bold">{stats.adminCount} Admins / {stats.editorCount} Editors</div>
-              <p className="text-xs text-muted-foreground font-mono">{stats.viewerCount} Viewers</p>
+              <ShieldAlert className="h-6 w-6 text-cyber-400 mx-auto mb-1" />
+              <div className="text-xs font-bold flex flex-wrap items-center justify-center gap-1.5 leading-snug">
+                <span className="text-purple-400">{stats.ownerCount || 0} Owner</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-cyber-400">{stats.adminCount} Admin</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-emerald-400">{stats.editorCount} Edit</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-mono mt-1">
+                {stats.investigatorCount || 0} Invest. &middot; {stats.viewerCount} View
+              </p>
             </CardContent>
           </Card>
           <Card className="glass-card">
@@ -407,13 +421,13 @@ export default function TeamWorkspacePage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-1.5 shrink-0">
-                  {["ALL", "ADMIN", "EDITOR", "VIEWER"].map((role) => (
+                <div className="flex flex-wrap gap-1.5 shrink-0">
+                  {["ALL", "OWNER", "ADMIN", "EDITOR", "INVESTIGATOR", "VIEWER"].map((role) => (
                     <Button
                       key={role}
                       variant={roleFilter === role ? "cyber" : "outline"}
                       size="sm"
-                      className="h-9 text-xs"
+                      className="h-8 text-[11px] px-2.5"
                       onClick={() => setRoleFilter(role)}
                     >
                       {role}
@@ -485,16 +499,16 @@ export default function TeamWorkspacePage() {
                                 {m.role}
                                 <MoreHorizontal className="h-3 w-3 text-muted-foreground ml-1" />
                               </button>
-                              <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[140px] z-10 hidden group-hover/role:block">
-                                {["VIEWER", "EDITOR"].map((role) => (
+                              <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[150px] z-10 hidden group-hover/role:block">
+                                {["VIEWER", "INVESTIGATOR", "EDITOR", "ADMIN", "OWNER"].map((r) => (
                                   <button
-                                    key={role}
-                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${m.role === role ? "text-cyber-400 font-medium" : "text-muted-foreground"}`}
-                                    onClick={() => changeRole(m.id, role)}
+                                    key={r}
+                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${m.role === r ? "text-cyber-400 font-medium" : "text-muted-foreground"}`}
+                                    onClick={() => changeRole(m.id, r)}
                                   >
-                                    {role === "EDITOR" ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-                                    {role}
-                                    {m.role === role && <Check className="h-3 w-3 ml-auto text-cyber-400" />}
+                                    <Shield className="h-3 w-3" />
+                                    {r}
+                                    {m.role === r && <Check className="h-3 w-3 ml-auto text-cyber-400" />}
                                   </button>
                                 ))}
                               </div>
@@ -555,15 +569,18 @@ export default function TeamWorkspacePage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-1.5">Role Permission</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     {[
                       { value: "VIEWER", icon: Shield, desc: "Read-only access" },
+                      { value: "INVESTIGATOR", icon: Search, desc: "Forensics & Audit" },
                       { value: "EDITOR", icon: ShieldCheck, desc: "Can edit files" },
                       { value: "ADMIN", icon: ShieldAlert, desc: "Full control" },
+                      { value: "OWNER", icon: ShieldAlert, desc: "Team Owner" },
                     ].map(({ value, icon: Icon, desc }) => (
                       <button
                         key={value}
-                        className={`p-3 rounded-lg border text-left transition-all ${
+                        type="button"
+                        className={`p-2.5 rounded-lg border text-left transition-all ${
                           inviteRole === value
                             ? "border-cyber-500 bg-cyber-500/10"
                             : "border-border bg-muted/30 hover:border-cyber-500/30"
@@ -572,7 +589,7 @@ export default function TeamWorkspacePage() {
                       >
                         <Icon className={`h-4 w-4 mb-1 ${inviteRole === value ? "text-cyber-400" : "text-muted-foreground"}`} />
                         <p className="text-xs font-medium">{value}</p>
-                        <p className="text-[10px] text-muted-foreground">{desc}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{desc}</p>
                       </button>
                     ))}
                   </div>

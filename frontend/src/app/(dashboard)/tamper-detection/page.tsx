@@ -6,6 +6,7 @@ import {
   Clock, Trash2, Download, Shield, Bug, ScanLine, Image, FileCode,
   Sigma, Zap, Eye, Layers, Fingerprint, X, Search, FileText, List, WifiOff,
   RotateCcw, Copy, Check, ChevronRight, Activity, ArrowRight,
+  ChevronDown, FileJson, FileSpreadsheet,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/layout/page-header"
 import { Progress } from "@/components/ui/progress"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import toast from "react-hot-toast"
 import { api } from "@/lib/api"
 
@@ -207,7 +209,7 @@ export default function TamperDetectionPage() {
     setTimeout(() => setCopiedHash(false), 2000)
   }
 
-  const exportReport = () => {
+  const exportAsJSON = () => {
     if (!result) return
     const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
@@ -216,7 +218,88 @@ export default function TamperDetectionPage() {
     a.download = `tamper-${result.fileName}-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success("Report exported")
+    toast.success("JSON Report exported")
+  }
+
+  const exportAsCSV = () => {
+    if (!result) return
+    const rows = [
+      ["Metric / Attribute", "Value", "Notes"],
+      ["Filename", `"${result.fileName}"`, ""],
+      ["File Size", `"${formatSize(result.fileSize)}"`, ""],
+      ["File Type", `"${result.fileType}"`, ""],
+      ["Overall Risk", `"${result.overallRisk}"`, ""],
+      ["Tamper Probability", `"${result.tamperProbability != null ? (result.tamperProbability * 100).toFixed(1) + '%' : 'N/A'}"`, ""],
+      ["Tamper Score", `"${result.tamperScore != null ? result.tamperScore : 'N/A'}"`, "Out of 100"],
+      ["Deepfake Risk", `"${result.deepfakeProbability != null ? (result.deepfakeProbability * 100).toFixed(1) + '%' : 'N/A'}"`, ""],
+      ["ELA / Stego Risk", `"${((result.elaProbability || 0) * 100).toFixed(1)}%"`, ""],
+      ["Average Entropy", `"${result.avgEntropy}"`, "Max 8.0"],
+      ["SHA-256 Checksum", `"${result.sha256}"`, ""],
+      ["Analyzed At", `"${new Date(result.timestamp).toLocaleString()}"`, ""],
+    ]
+
+    const csvContent = rows.map(r => r.join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `tamper-${result.fileName}-${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success("CSV Report exported")
+  }
+
+  const exportAsPDF = () => {
+    if (!result) return
+    const printWin = window.open("", "_blank")
+    if (!printWin) { toast.error("Pop-up blocked. Allow popups to print/export PDF."); return }
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>StegShield X — Tamper & Deepfake Report (${result.fileName})</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px; color: #0f172a; background: #fff; }
+    h1 { color: #4f46e5; margin-bottom: 4px; font-size: 24px; }
+    .subtitle { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+    .card .val { font-size: 20px; font-weight: bold; color: #0f172a; }
+    .card .lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; color: #475569; }
+    .hash { font-family: monospace; font-size: 11px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>StegShield X Tamper & Deepfake Report</h1>
+  <p class="subtitle">Generated on ${new Date().toLocaleString()} | Target: ${result.fileName}</p>
+  
+  <div class="grid">
+    <div class="card"><div class="val">${result.overallRisk.toUpperCase()}</div><div class="lbl">Overall Risk</div></div>
+    <div class="card"><div class="val">${result.tamperProbability != null ? (result.tamperProbability * 100).toFixed(0) + '%' : 'N/A'}</div><div class="lbl">Tamper Prob</div></div>
+    <div class="card"><div class="val">${((result.elaProbability || 0) * 100).toFixed(0)}%</div><div class="lbl">ELA Risk</div></div>
+    <div class="card"><div class="val">${result.deepfakeProbability != null ? (result.deepfakeProbability * 100).toFixed(0) + '%' : 'N/A'}</div><div class="lbl">Deepfake Risk</div></div>
+  </div>
+
+  <h2>Analysis Details</h2>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Target Filename</td><td>${result.fileName}</td></tr>
+    <tr><td>File Type</td><td>${result.fileType} (${formatSize(result.fileSize)})</td></tr>
+    <tr><td>Average Entropy</td><td>${result.avgEntropy} / 8.0</td></tr>
+    <tr><td>SHA-256 Checksum</td><td class="hash">${result.sha256}</td></tr>
+    <tr><td>Analyzed At</td><td>${new Date(result.timestamp).toLocaleString()}</td></tr>
+  </table>
+
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`
+
+    printWin.document.write(html)
+    printWin.document.close()
+    toast.success("PDF Print/Export window opened")
   }
 
   return (
@@ -434,9 +517,24 @@ export default function TamperDetectionPage() {
                       Analyzed {new Date(result.timestamp).toLocaleString()}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={exportReport}>
-                        <Download className="mr-2 h-4 w-4" />Export JSON
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="flex-1">
+                            <Download className="mr-1.5 h-4 w-4" />Export <ChevronDown className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onClick={exportAsJSON} className="cursor-pointer">
+                            <FileJson className="h-4 w-4 mr-2 text-cyan-400" /> Export JSON
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={exportAsCSV} className="cursor-pointer">
+                            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-400" /> Export CSV
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={exportAsPDF} className="cursor-pointer">
+                            <FileText className="h-4 w-4 mr-2 text-purple-400" /> Export PDF
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => { setResult(null); setFile(null); setActiveTab("analyze") }}>
                         <Upload className="mr-2 h-4 w-4" />New Analysis
                       </Button>

@@ -62,6 +62,7 @@ function getLanIp(): string {
 import { PrismaService } from "../prisma/prisma.service"
 import { AuditService } from "../audit/audit.service"
 import { AuditActions } from "../audit/audit.constants"
+import { NotificationsService } from "../notifications/notifications.service"
 import { v4 as uuid } from "uuid"
 import * as argon2 from "argon2"
 import { join, extname } from "path"
@@ -100,6 +101,7 @@ export class SharingService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notifications: NotificationsService,
   ) {
     this.shareDir = join(process.cwd(), "uploads", "sharing")
     if (!existsSync(this.shareDir)) {
@@ -403,6 +405,13 @@ export class SharingService {
       where: { id: link.id },
       data: { downloads: { increment: 1 } },
     })
+
+    await this.notifications.create(
+      link.userId,
+      "Secure File Downloaded",
+      `${link.fileName || "Your shared file"} was downloaded${requestIp ? ` from ${sanitizeIp(requestIp)}` : ""} (${(link.downloads || 0) + 1}/${link.maxDownloads || "∞"} downloads)`,
+      "info",
+    ).catch(() => {})
 
     const fileSize = link.fileSize || 0
     const fileName = (link.fileName || "download").replace(/["\r\n]/g, "")

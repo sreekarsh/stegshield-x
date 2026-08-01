@@ -226,7 +226,7 @@ export default function ImageEncryptionPage() {
                       <img src={previewUrl} alt="Preview" className="max-h-60 max-w-full object-contain rounded" />
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{(encryptFile!.size / 1024).toFixed(1)} KB</span>
+                      <span>{encryptFile ? `${(encryptFile.size / 1024).toFixed(1)} KB` : ""}</span>
                       <Button variant="outline" size="sm" onClick={() => { setEncryptFile(null); setEncResult(null) }}>
                         Remove
                       </Button>

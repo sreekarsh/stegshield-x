@@ -35,7 +35,7 @@ interface AdminStats {
 
 interface MonitData {
   cpu: number; cpuCores: number; memory: number; memoryUsed: string
-  memoryTotal: string; storage: number; storageUsed: string; storageTotal: string
+  memoryTotal: string; processMemoryUsed?: string; processMemoryTotal?: string; storage: number; storageUsed: string; storageTotal: string
   activeConnections: number; uptime: string; dbHealthy: boolean
   aiHealthy: boolean; platform: string; hostname: string
 }
@@ -492,11 +492,16 @@ export default function AdminPanelPage() {
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-muted-foreground" />Memory</span>
+                    <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-muted-foreground" />Memory (System RAM)</span>
                     <span className="font-mono text-xs font-medium">{monitoring?.memory || 0}%</span>
                   </div>
                   <Progress value={monitoring?.memory || 0} className="h-2" indicatorClassName={monitoring && monitoring.memory > 80 ? "bg-destructive" : monitoring && monitoring.memory > 50 ? "bg-warning" : ""} />
-                  <p className="text-[10px] text-muted-foreground mt-1">{monitoring?.memoryUsed} / {monitoring?.memoryTotal}</p>
+                  <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
+                    <span>Host: {monitoring?.memoryUsed} / {monitoring?.memoryTotal}</span>
+                    {monitoring?.processMemoryUsed && (
+                      <span className="text-cyber-400 font-mono">App Heap: {monitoring.processMemoryUsed}</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1.5">

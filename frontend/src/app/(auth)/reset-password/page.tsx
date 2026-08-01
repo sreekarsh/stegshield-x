@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useMemo } from "react"
+import { Suspense, useState, useMemo, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Shield, KeyRound, Loader2, ArrowLeft, CheckCircle, Eye, EyeOff, Check, X, Lock } from "lucide-react"
@@ -46,6 +46,11 @@ function ResetForm() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    if (urlEmail && !emailInput) setEmailInput(urlEmail)
+    if (urlToken && !tokenInput) setTokenInput(urlToken)
+  }, [urlEmail, urlToken, emailInput, tokenInput])
 
   const strength = useMemo(() => calculateStrength(password), [password])
 

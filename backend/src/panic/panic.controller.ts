@@ -4,6 +4,7 @@ import { PanicService } from "./panic.service"
 import { PanicGuard } from "./panic.guard"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
 import { extractClientIp } from "../common/utils"
+import { ContactSecurityDto } from "./dto/contact-security.dto"
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger"
 
 @ApiTags("Panic")
@@ -15,6 +16,13 @@ export class PanicController {
   @Get("support-contact")
   async supportContact() {
     return { email: process.env.SECURITY_CONTACT_EMAIL || "security@stegshield.com" }
+  }
+
+  @Post("contact-security")
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async contactSecurity(@Req() req: any, @Body() dto: ContactSecurityDto) {
+    return this.panicService.contactSecurity(req.user.id, dto.message, extractClientIp(req))
   }
 
   @Post("verify-password")

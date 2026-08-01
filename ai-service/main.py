@@ -39,7 +39,7 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "50000000"))  # 50MB max file lim
 MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "64000000")) # 8000x8000 max pixels
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
-AI_API_KEY = os.getenv("AI_API_KEY", "stegshield-ai-key-change-in-production")
+AI_API_KEY = os.getenv("AI_API_KEY", "stegshield-ai-key-change-in-production").strip("\"' ")
 # Default to TRUE for security unless explicitly set to false/0/no
 env_req = os.getenv("AI_API_KEY_REQUIRED", "true").lower().strip()
 AI_API_KEY_REQUIRED = env_req not in ("0", "false", "no", "off")

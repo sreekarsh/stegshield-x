@@ -1,8 +1,9 @@
-import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, Param, UseInterceptors, UploadedFile, BadRequestException } from "@nestjs/common"
+import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, Param, UseInterceptors, UploadedFile, BadRequestException, Res, NotFoundException } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
 import { diskStorage } from "multer"
-import { extname, join } from "path"
+import { extname, join, basename } from "path"
 import { existsSync, mkdirSync } from "fs"
+import { Response } from "express"
 import { ApiTags, ApiBearerAuth, ApiConsumes } from "@nestjs/swagger"
 import { Role } from "@prisma/client"
 import { UsersService } from "./users.service"
@@ -52,6 +53,16 @@ export class UsersController {
     }
     const avatarUrl = `/uploads/avatars/${file.filename}`
     return this.usersService.update(req.user.id, { avatar: avatarUrl })
+  }
+
+  @Get("avatar-file/:filename")
+  async getAvatarFile(@Param("filename") filename: string, @Res() res: Response) {
+    const safeName = basename(filename)
+    const filePath = join(process.cwd(), "uploads", "avatars", safeName)
+    if (!existsSync(filePath)) {
+      throw new NotFoundException("Avatar file not found")
+    }
+    return res.sendFile(filePath)
   }
 
 

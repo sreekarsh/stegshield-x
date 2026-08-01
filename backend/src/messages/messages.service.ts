@@ -1,9 +1,13 @@
 ﻿import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
+import { NotificationsService } from "../notifications/notifications.service"
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async send(senderId: string, dto: { receiverId: string; content: string; selfDestruct?: boolean; oneTimeView?: boolean; expiresIn?: number; encrypted?: boolean }) {
     if (senderId === dto.receiverId) {
@@ -19,6 +23,12 @@ export class MessagesService {
       throw new NotFoundException("Recipient not found")
     }
 
+    const sender = await this.prisma.user.findUnique({
+      where: { id: senderId },
+      select: { name: true },
+    })
+    const senderName = sender?.name || "A user"
+
     const expiresAt = dto.oneTimeView
       ? new Date(Date.now() + 60 * 1000)
       : dto.selfDestruct
@@ -27,7 +37,7 @@ export class MessagesService {
           ? new Date(Date.now() + dto.expiresIn * 1000)
           : null
 
-    return this.prisma.message.create({
+    const message = await this.prisma.message.create({
       data: {
         senderId,
         receiverId: dto.receiverId,
@@ -42,6 +52,15 @@ export class MessagesService {
         receiver: { select: { id: true, name: true, avatar: true } },
       },
     })
+
+    await this.notifications.create(
+      dto.receiverId,
+      "New Encrypted Message",
+      `${senderName} sent you a new ${dto.oneTimeView ? "one-time " : dto.selfDestruct ? "self-destructing " : ""}message`,
+      "info",
+    ).catch(() => {})
+
+    return message
   }
 
   async getConversations(userId: string) {

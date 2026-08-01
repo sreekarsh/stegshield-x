@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
+import { NotificationsService } from "../notifications/notifications.service"
 import * as crypto from "crypto"
 import { Role } from "@prisma/client"
 import { sanitizeIp } from "../common/utils"
 
-const VALID_ROLES: Role[] = ["ADMIN", "EDITOR", "VIEWER"]
+const VALID_ROLES: Role[] = ["OWNER", "ADMIN", "EDITOR", "INVESTIGATOR", "VIEWER"]
 const INVITATION_DAYS_VALID = 7
 
 function parseRole(role: string): Role {
@@ -24,6 +25,7 @@ export class TeamService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private notifications: NotificationsService,
   ) {}
 
   private async getUserOrg(userId: string) {
@@ -171,6 +173,12 @@ export class TeamService {
       },
     })
     await this.audit(userId, "invite.added", "organizationUser", undefined, { email: dto.email, role }, ip)
+    await this.notifications.create(
+      targetUser.id,
+      "Team Invitation",
+      `${invitedByName} added you to the organization ${orgName} as ${role}`,
+      "info",
+    ).catch(() => {})
     return { invited: true, email: dto.email, role, status: "added" }
   }
 
@@ -246,6 +254,14 @@ export class TeamService {
     })
     await this.prisma.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } })
     await this.audit(userId, "invite.accepted", "invitation", invitation.id, undefined, ip)
+    if (invitation.invitedBy) {
+      await this.notifications.create(
+        invitation.invitedBy,
+        "Invitation Accepted",
+        `${user.name || "A user"} accepted your invitation to join the organization`,
+        "success",
+      ).catch(() => {})
+    }
     return { accepted: true }
   }
 
@@ -261,6 +277,14 @@ export class TeamService {
 
     await this.prisma.invitation.update({ where: { id: invitation.id }, data: { status: "DECLINED" } })
     await this.audit(userId, "invite.declined", "invitation", invitation.id, undefined, ip)
+    if (invitation.invitedBy) {
+      await this.notifications.create(
+        invitation.invitedBy,
+        "Invitation Declined",
+        `${user.email || "A user"} declined your invitation to join the organization`,
+        "info",
+      ).catch(() => {})
+    }
     return { declined: true }
   }
 
@@ -284,13 +308,19 @@ export class TeamService {
 
     await this.prisma.organizationUser.delete({ where: { id: memberId } })
     await this.audit(userId, "member.removed", "organizationUser", memberId, undefined, ip)
+    await this.notifications.create(
+      target.userId,
+      "Team Membership Removed",
+      `You were removed from the organization ${membership.organization?.name || "your team"} by an administrator`,
+      "warning",
+    ).catch(() => {})
     return { removed: true }
   }
 
   async updateRole(userId: string, memberId: string, newRole: string, ip?: string) {
     const membership = await this.getUserOrg(userId)
-    if (!membership || membership.role !== "ADMIN") {
-      throw new ForbiddenException("Only admins can change roles")
+    if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
+      throw new ForbiddenException("Only team owners or admins can change roles")
     }
 
     const role = parseRole(newRole)
@@ -299,8 +329,8 @@ export class TeamService {
       where: { id: memberId, organizationId: membership.organizationId },
     })
     if (!target) throw new NotFoundException("Member not found")
-    if (target.role === "ADMIN" && userId !== target.userId) {
-      throw new ForbiddenException("Cannot change another admin's role")
+    if (["OWNER", "ADMIN"].includes(target.role) && userId !== target.userId && membership.role !== "OWNER") {
+      throw new ForbiddenException("Cannot change another admin or owner's role")
     }
 
     await this.prisma.organizationUser.update({
@@ -308,6 +338,14 @@ export class TeamService {
       data: { role },
     })
     await this.audit(userId, "member.role_changed", "organizationUser", memberId, { from: target.role, to: role }, ip)
+    if (target.userId !== userId) {
+      await this.notifications.create(
+        target.userId,
+        "Role Updated",
+        `Your role in ${membership.organization.name} was changed from ${target.role} to ${role}`,
+        "info",
+      ).catch(() => {})
+    }
     return { updated: true }
   }
 
@@ -315,11 +353,11 @@ export class TeamService {
     const membership = await this.getUserOrg(userId)
     if (!membership) throw new NotFoundException("Not a member of any organization")
 
-    if (membership.role === "ADMIN") {
+    if (["OWNER", "ADMIN"].includes(membership.role)) {
       const adminCount = await this.prisma.organizationUser.count({
-        where: { organizationId: membership.organizationId, role: "ADMIN" },
+        where: { organizationId: membership.organizationId, role: { in: ["OWNER", "ADMIN"] } },
       })
-      if (adminCount <= 1) throw new ForbiddenException("Transfer admin role to another member before leaving")
+      if (adminCount <= 1) throw new ForbiddenException("Transfer admin or owner role to another member before leaving")
     }
 
     await this.prisma.organizationUser.delete({ where: { id: membership.id } })
@@ -337,8 +375,10 @@ export class TeamService {
     })
 
     const memberUserIds = members.map(m => m.userId)
+    const ownerCount = members.filter(m => m.role === "OWNER").length
     const adminCount = members.filter(m => m.role === "ADMIN").length
     const editorCount = members.filter(m => m.role === "EDITOR").length
+    const investigatorCount = members.filter(m => m.role === "INVESTIGATOR").length
     const viewerCount = members.filter(m => m.role === "VIEWER").length
 
     const [evidenceCount, casesCount, pendingInvitesCount] = await Promise.all([
@@ -349,8 +389,10 @@ export class TeamService {
 
     return {
       totalMembers: members.length,
+      ownerCount,
       adminCount,
       editorCount,
+      investigatorCount,
       viewerCount,
       evidenceCount,
       casesCount,

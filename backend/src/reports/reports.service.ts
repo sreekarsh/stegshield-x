@@ -13,8 +13,9 @@ function ensureDir() {
   if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true })
 }
 
-function escapeHtml(str: string): string {
-  return str
+function escapeHtml(str: unknown): string {
+  if (str == null) return ""
+  return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -30,6 +31,7 @@ function isWithinReportDir(filePath: string): boolean {
 
 function toSafeValue(val: unknown): string {
   if (val == null) return ""
+  if (typeof val === "object") return escapeHtml(JSON.stringify(val))
   return escapeHtml(String(val))
 }
 
@@ -55,8 +57,13 @@ export class ReportsService {
       data: { id, userId, name, type: dto.type, format: dto.format, status: "completed", data, filePath },
     })
 
-    const fileContent = this.formatContent(dto.format, name, data)
-    writeFileSync(filePath, fileContent)
+    try {
+      const fileContent = this.formatContent(dto.format, name, data)
+      writeFileSync(filePath, fileContent)
+    } catch (err) {
+      await this.prisma.report.delete({ where: { id } }).catch(() => {})
+      throw err
+    }
 
     return { id: report.id, userId, name: report.name, type: dto.type, format: dto.format, status: "completed", createdAt: report.createdAt.toISOString() }
   }
@@ -261,11 +268,14 @@ export class ReportsService {
     const [evidence, total, statusCounts] = await Promise.all([
       this.prisma.evidence.findMany({ where, orderBy: { createdAt: "desc" }, take: 500 }),
       this.prisma.evidence.count({ where }),
-      this.prisma.evidence.groupBy({ by: ["status"], where: { userId }, _count: true }),
+      this.prisma.evidence.groupBy({ by: ["status"], where: { userId }, _count: { status: true } }),
     ])
 
     const statusBreakdown: Record<string, number> = {}
-    statusCounts.forEach(s => { statusBreakdown[s.status] = s._count })
+    statusCounts.forEach(s => {
+      const countVal = typeof s._count === "number" ? s._count : (s._count?.status || 0)
+      statusBreakdown[s.status] = countVal
+    })
 
     return {
       ...base,
@@ -504,7 +514,14 @@ export class ReportsService {
       html += `<div class="section"><h2>Summary</h2><div class="stat-grid">`
       for (const [key, value] of Object.entries(data.summary)) {
         const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())
-        html += `<div class="stat"><div class="value">${toSafeValue(value)}</div><div class="label">${escapeHtml(label)}</div></div>`
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          for (const [subKey, subVal] of Object.entries(value)) {
+            const subLabel = `${label} (${subKey})`
+            html += `<div class="stat"><div class="value">${toSafeValue(subVal)}</div><div class="label">${escapeHtml(subLabel)}</div></div>`
+          }
+        } else {
+          html += `<div class="stat"><div class="value">${toSafeValue(value)}</div><div class="label">${escapeHtml(label)}</div></div>`
+        }
       }
       html += `</div></div>`
     }

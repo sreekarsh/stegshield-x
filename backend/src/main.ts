@@ -53,7 +53,7 @@ async function bootstrap() {
       ) {
         callback(null, true)
       } else {
-        callback(null, true)
+        callback(new Error("CORS policy violation: Origin not allowed"), false)
       }
     },
     credentials: true,

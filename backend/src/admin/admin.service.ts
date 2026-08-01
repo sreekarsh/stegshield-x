@@ -135,7 +135,7 @@ export class AdminService {
       this.prisma.session.count({ where: { createdAt: { gte: startDate } } }),
       this.prisma.auditLog.groupBy({
         by: ["action"],
-        _count: true,
+        _count: { action: true },
         where: { createdAt: { gte: startDate } },
         orderBy: { _count: { action: "desc" } },
         take: 10,
@@ -226,7 +226,7 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id } })
     if (!user) throw new NotFoundException("User not found")
 
-    if (user.email.toLowerCase() === "sreekarsh44@gmail.com") {
+    if (user.email && user.email.toLowerCase() === "sreekarsh44@gmail.com") {
       if (dto.role && dto.role !== "OWNER") {
         throw new BadRequestException("Master OWNER account (sreekarsh44@gmail.com) cannot be demoted.")
       }
@@ -252,7 +252,7 @@ export class AdminService {
     }
     const user = await this.prisma.user.findUnique({ where: { id } })
     if (!user) throw new NotFoundException("User not found")
-    if (user.email.toLowerCase() === "sreekarsh44@gmail.com") {
+    if (user.email && user.email.toLowerCase() === "sreekarsh44@gmail.com") {
       throw new BadRequestException("Master Head account (sreekarsh44@gmail.com) cannot be deleted.")
     }
     await this.prisma.$transaction([
@@ -290,12 +290,16 @@ export class AdminService {
     const storageAgg = await this.prisma.evidence.aggregate({ _sum: { size: true } })
     const totalStorageBytes = storageAgg._sum.size || 0
 
+    const processMem = process.memoryUsage()
+
     return {
       cpu: cpuUsage,
       cpuCores,
       memory: memUsage,
       memoryUsed: formatBytes(usedMem),
       memoryTotal: formatBytes(totalMem),
+      processMemoryUsed: formatBytes(processMem.heapUsed),
+      processMemoryTotal: formatBytes(processMem.heapTotal),
       storage: totalStorageBytes > 0 ? Math.round((totalStorageBytes / (100 * 1024 * 1024 * 1024)) * 100) : 0,
       storageUsed: formatBytes(totalStorageBytes),
       storageTotal: "100 GB",

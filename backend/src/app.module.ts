@@ -1,8 +1,7 @@
 import { Module } from "@nestjs/common"
 import { ConfigModule } from "@nestjs/config"
-import { ThrottlerModule } from "@nestjs/throttler"
-import { ServeStaticModule } from "@nestjs/serve-static"
-import { join } from "path"
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
+import { APP_GUARD } from "@nestjs/core"
 
 import { PrismaModule } from "./prisma/prisma.module"
 import { HealthController } from "./health.controller"
@@ -44,16 +43,6 @@ import { DashboardModule } from "./dashboard/dashboard.module"
       limit: 60,
       name: "default",
     }]),
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), "uploads"),
-      serveRoot: "/uploads",
-      serveStaticOptions: {
-        setHeaders: (res) => {
-          res.setHeader("Access-Control-Allow-Origin", "*")
-          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin")
-        },
-      },
-    }),
 
     PdfModule,
     UrlCheckerModule,
@@ -87,5 +76,11 @@ import { DashboardModule } from "./dashboard/dashboard.module"
     DashboardModule,
   ],
   controllers: [HealthController],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -50,8 +50,8 @@ class TestAIService(unittest.TestCase):
         self.assertIn("filename", data)
 
     def test_unauthorized_request(self):
-        # Request without auth header should return 401
-        response = self.client.get("/health")
+        # Request without auth header to protected endpoint should return 401
+        response = self.client.post("/analyze/threat")
         self.assertEqual(response.status_code, 401)
 
 if __name__ == "__main__":

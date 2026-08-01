@@ -22,7 +22,11 @@ export default function MFAPage() {
     try {
       const data = await api.post<{ secret: string; otpauth_url: string }>("/auth/mfa/setup", {})
       setSecret(data.secret)
-      setQrCode(`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(data.otpauth_url)}`)
+      
+      // Generate QR code client-side using qrcode library to protect secret privacy
+      const QRCode = await import("qrcode")
+      const dataUrl = await QRCode.toDataURL(data.otpauth_url, { width: 200, margin: 2 })
+      setQrCode(dataUrl)
       setStep("verify")
     } catch {
       toast.error("Failed to setup MFA")

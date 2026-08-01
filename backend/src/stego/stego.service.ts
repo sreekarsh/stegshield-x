@@ -1,7 +1,6 @@
-﻿import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common"
+import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common"
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 import { readFileSync, writeFileSync, existsSync } from "fs"
-import { stat } from "fs/promises"
 import { join } from "path"
 import { PrismaService } from "../prisma/prisma.service"
 
@@ -15,8 +14,6 @@ const MIME_TO_FORMAT: Record<string, string> = {
   "video/mp4": "MP4",
   "application/pdf": "PDF",
 }
-
-const SUPPORTED_CARRIER_TYPES = Object.keys(MIME_TO_FORMAT)
 
 const ALGORITHM_BY_TYPE: Record<string, string> = {
   PNG: "LSB-spatial",
@@ -126,15 +123,17 @@ export class StegoService {
 
     const carrierBuffer = readFileSync(carrier.filePath)
     let messageBuffer = Buffer.from(dto.message, "utf-8")
+    let encryptionKeyHex: string | undefined = undefined
 
     if (dto.encrypt) {
       const key = randomBytes(32)
+      encryptionKeyHex = key.toString("hex")
       const iv = randomBytes(12)
       const cipher = createCipheriv("aes-256-gcm", key, iv)
       const encrypted = Buffer.concat([cipher.update(messageBuffer), cipher.final()])
       const tag = cipher.getAuthTag()
       const version = Buffer.from([0x01])
-      messageBuffer = Buffer.concat([version, iv, tag, encrypted, key])
+      messageBuffer = Buffer.concat([version, iv, tag, encrypted])
     }
 
     const stegoBuffer = embedLSB(carrierBuffer, messageBuffer)
@@ -159,19 +158,22 @@ export class StegoService {
       name: record.name,
       algorithm: record.algorithm,
       encryption: record.encryption,
+      encryptionKey: encryptionKeyHex,
       hiddenDataSize: record.hiddenDataSize,
       stegoFile: stegoFilePath,
     }
   }
 
-  async extract(dto: { fileId: string; key?: string }) {
+  async extract(userId: string, dto: { fileId: string; key?: string }) {
     if (!dto.fileId) {
       throw new BadRequestException("fileId is required")
     }
 
-    const record = await this.prisma.stegoFile.findUnique({ where: { id: dto.fileId } })
+    const record = await this.prisma.stegoFile.findFirst({
+      where: { id: dto.fileId, userId },
+    })
     if (!record) {
-      throw new NotFoundException("Stego record not found")
+      throw new NotFoundException("Stego record not found or access denied")
     }
 
     const carrier = await this.prisma.evidence.findUnique({ where: { id: record.carrierFile } })
@@ -183,13 +185,16 @@ export class StegoService {
     const payload = extractLSB(carrierBuffer)
 
     let message: string
-    if (payload[0] === 0x01 && payload.length > 45) {
+    if (payload[0] === 0x01 && payload.length > 29) {
+      if (!dto.key) {
+        throw new BadRequestException("Decryption key is required for encrypted stego payload")
+      }
       const iv = payload.subarray(1, 13)
       const tag = payload.subarray(13, 29)
-      const encrypted = payload.subarray(29, payload.length - 32)
-      const key = payload.subarray(payload.length - 32)
+      const encrypted = payload.subarray(29)
 
       try {
+        const key = Buffer.from(dto.key, "hex")
         const decipher = createDecipheriv("aes-256-gcm", key, iv)
         decipher.setAuthTag(tag)
         const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])

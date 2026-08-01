@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from "@nestjs/testing"
+import { Test, TestingModule } from "@nestjs/testing"
 import { AuditService } from "./audit.service"
 import { PrismaService } from "../prisma/prisma.service"
 
@@ -53,7 +53,7 @@ describe("AuditService", () => {
     it("should create a simple audit log", async () => {
       await service.logSimple("user-1", "Bob", "file.upload" as any, "StegoFile")
       expect(prisma.auditLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ action: "file.upload", ip: "0.0.0.0" }) }),
+        expect.objectContaining({ data: expect.objectContaining({ action: "file.upload", ip: "127.0.0.1" }) }),
       )
     })
   })

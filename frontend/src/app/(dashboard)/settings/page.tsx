@@ -212,14 +212,22 @@ export default function SettingsPage() {
   }, [])
 
   const markRead = async (id: string) => {
-    await api.patch(`/notifications/${id}/read`)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+    try {
+      await api.patch(`/notifications/${id}/read`)
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+    } catch {
+      toast.error("Failed to mark notification as read")
+    }
   }
 
   const markAllRead = async () => {
-    await api.patch("/notifications/read-all")
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-    toast.success("All marked as read")
+    try {
+      await api.patch("/notifications/read-all")
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      toast.success("All marked as read")
+    } catch {
+      toast.error("Failed to mark notifications as read")
+    }
   }
 
   const [emailChangePassword, setEmailChangePassword] = useState("")

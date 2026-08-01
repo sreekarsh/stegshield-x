@@ -1,4 +1,4 @@
-﻿import { Controller, Post, Get, Body, UseGuards, Req } from "@nestjs/common"
+import { Controller, Post, Get, Body, UseGuards, Req } from "@nestjs/common"
 import { StegoService } from "./stego.service"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
 import { DecoyVaultGuard } from "../decoy/decoy-vault.guard"
@@ -18,8 +18,8 @@ export class StegoController {
 
   @Post("extract")
   @UseGuards(JwtAuthGuard)
-  async extract(@Body() dto: { fileId: string; key?: string }) {
-    return this.stegoService.extract(dto)
+  async extract(@Req() req: any, @Body() dto: { fileId: string; key?: string }) {
+    return this.stegoService.extract(req.user.id, dto)
   }
 
   @Get("files")

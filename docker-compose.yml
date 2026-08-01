@@ -68,6 +68,8 @@ services:
       start_period: 40s
     ports:
       - "4000:4000"
+    volumes:
+      - uploads_data:/app/uploads
     env_file:
       - ./backend/.env
     environment:
@@ -170,5 +172,6 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
   stegshield_certs:
   certbot_webroot:

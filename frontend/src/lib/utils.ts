@@ -46,6 +46,10 @@ export function getAvatarUrl(url?: string | null): string | undefined {
   if (!url) return undefined
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+  if (url.startsWith("/uploads/avatars/")) {
+    const filename = url.replace("/uploads/avatars/", "")
+    return `${apiBase}/users/avatar-file/${filename}`
+  }
   const backendBase = apiBase.replace(/\/api\/?$/, "")
   return `${backendBase}${url.startsWith("/") ? "" : "/"}${url}`
 }

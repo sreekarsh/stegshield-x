@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle, LogOut, Shield, Key,
-  RefreshCw, AlertOctagon, Fingerprint, Ban, Eye, ExternalLink, Lock,
+  RefreshCw, AlertOctagon, Fingerprint, Ban, Eye, Send, Lock,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -82,6 +82,10 @@ export default function PanicModePage() {
   const [panicToken, setPanicToken] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<ActionConfig | null>(null)
   const [supportContact, setSupportContact] = useState("security@stegshield.com")
+  const [showContactDialog, setShowContactDialog] = useState(false)
+  const [contactMessage, setContactMessage] = useState("")
+  const [contactError, setContactError] = useState("")
+  const [contactSending, setContactSending] = useState(false)
 
   useEffect(() => {
     api.get<{ email: string }>("/panic/support-contact")
@@ -154,6 +158,33 @@ export default function PanicModePage() {
   const handlePasswordKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !passwordLoading) handlePasswordSubmit()
   }, [handlePasswordSubmit, passwordLoading])
+
+  const handleContactSend = useCallback(async () => {
+    if (!contactMessage.trim()) {
+      setContactError("Please describe the problem you are facing")
+      return
+    }
+    setContactSending(true)
+    setContactError("")
+    try {
+      await api.post("/panic/contact-security", { message: contactMessage.trim() })
+      toast.success("Report sent to the security team")
+      setShowContactDialog(false)
+      setContactMessage("")
+    } catch (err) {
+      setContactError(err instanceof ApiError ? err.message : "Failed to send report. Please try again.")
+    } finally {
+      setContactSending(false)
+    }
+  }, [contactMessage])
+
+  const handleContactDialogClose = useCallback((open: boolean) => {
+    if (!open && !contactSending) {
+      setShowContactDialog(false)
+      setContactMessage("")
+      setContactError("")
+    }
+  }, [contactSending])
 
   return (
     <div className="space-y-6">
@@ -279,8 +310,8 @@ export default function PanicModePage() {
               <Button variant="outline" className="w-full justify-start" onClick={() => router.push("/reports")}>
                 <Shield className="mr-2 h-4 w-4" /> Generate Security Report
               </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => window.open(`mailto:${supportContact}?subject=${encodeURIComponent("Security Incident Report — Panic Mode")}`, "_blank")}>
-                <ExternalLink className="mr-2 h-4 w-4" /> Contact Security Team
+              <Button variant="outline" className="w-full justify-start" onClick={() => setShowContactDialog(true)}>
+                <Send className="mr-2 h-4 w-4" /> Contact Security Team
               </Button>
             </CardContent>
           </Card>
@@ -326,6 +357,33 @@ export default function PanicModePage() {
           {passwordError && (
             <p className="text-xs text-destructive">{passwordError}</p>
           )}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={showContactDialog}
+        onOpenChange={handleContactDialogClose}
+        onConfirm={handleContactSend}
+        title="Contact Security Team"
+        description={`Describe the problem you are facing. Your report will be sent to ${supportContact}.`}
+        confirmLabel="Send Report"
+        variant="default"
+        loading={contactSending}
+      >
+        <div className="space-y-2 pt-2 w-full">
+          <textarea
+            id="contact-message"
+            value={contactMessage}
+            onChange={(e) => { setContactMessage(e.target.value); setContactError("") }}
+            placeholder="Describe the issue in detail — e.g. unauthorized access, suspicious activity, lost device, account compromise..."
+            className="w-full min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+            maxLength={5000}
+            autoFocus
+          />
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{contactMessage.length}/5000</span>
+            {contactError && <span className="text-destructive">{contactError}</span>}
+          </div>
         </div>
       </ConfirmDialog>
     </div>

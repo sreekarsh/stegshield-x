@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { JwtService } from "@nestjs/jwt"
 import { MailService } from "../mail/mail.service"
+import { NotificationsService } from "../notifications/notifications.service"
 import { sanitizeIp } from "../common/utils"
 import * as argon2 from "argon2"
 
@@ -11,6 +12,7 @@ export class PanicService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mail: MailService,
+    private notifications: NotificationsService,
   ) {}
 
   async verifyPassword(userId: string, password: string): Promise<{ panicToken: string }> {
@@ -49,11 +51,36 @@ export class PanicService {
   private async sendAlert(userId: string, action: string, ip?: string) {
     try {
       const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
+      const actionLabels: Record<string, string> = {
+        destroy_keys: "Destroy Encryption Keys",
+        logout_all: "Logout All Devices",
+        revoke_tokens: "Revoke All API Tokens",
+        clear_audit_attempt_blocked: "Clear Audit Logs (blocked)",
+      }
+      const label = actionLabels[action] || action
+      await this.notifications.create(
+        userId,
+        "Panic Mode Triggered",
+        `${label} was executed from your account${ip ? ` (IP: ${ip})` : ""}. If this was not you, contact the security team immediately.`,
+        "warning",
+      ).catch(() => {})
       if (!user?.email) return
       await this.mail.sendPanicAlert({ to: user.email, userName: user.name || "User", action, ip: ip || "Unknown" })
     } catch (err) {
       console.error("Panic email alert failed:", err)
     }
+  }
+
+  async contactSecurity(userId: string, message: string, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
+    await this.mail.sendSecurityReport({
+      fromEmail: user?.email || "unknown",
+      userName: user?.name || "Unknown user",
+      message,
+      ip,
+    })
+    await this.audit(userId, "panic.contact_security", { messageLength: message.length }, ip)
+    return { message: "Your report has been sent to the security team" }
   }
 
   async destroyKeys(userId: string, ip?: string) {

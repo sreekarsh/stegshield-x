@@ -139,6 +139,67 @@ export class MailService {
     }
   }
 
+  async sendSecurityReport(opts: { fromEmail: string; userName: string; message: string; ip?: string }) {
+    if (!this.transporter) return
+
+    const { fromEmail, userName, message, ip } = opts
+    const from = process.env.SMTP_FROM || "noreply@stegshield.com"
+    const subject = "[SECURITY INCIDENT] Panic Mode Report"
+    const safeMessage = this.escapeHtml(message)
+
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @media only screen and (max-width:480px){.container{width:100%!important}.inner{padding:24px 16px!important}}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
+<table class="container" width="480" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
+  <tr><td style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:32px 32px 24px;text-align:center">
+    <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px">Security Incident Report</h1>
+    <p style="margin:4px 0 0;color:#fca5a5;font-size:13px">A user contacted the security team from Panic Mode</p>
+  </td></tr>
+  <tr><td class="inner" style="padding:32px 32px 8px">
+    <table style="width:100%;border-collapse:collapse;margin:0 0 16px" cellpadding="8">
+      <tr><td style="border:1px solid #e2e8f0;font-size:13px;color:#64748b;width:100px">User</td><td style="border:1px solid #e2e8f0;font-size:14px;color:#0f172a;font-weight:600">${userName}</td></tr>
+      <tr><td style="border:1px solid #e2e8f0;font-size:13px;color:#64748b">Email</td><td style="border:1px solid #e2e8f0;font-size:14px;color:#0f172a">${fromEmail}</td></tr>
+      <tr><td style="border:1px solid #e2e8f0;font-size:13px;color:#64748b">IP Address</td><td style="border:1px solid #e2e8f0;font-size:14px;color:#0f172a">${ip || "Unknown"}</td></tr>
+      <tr><td style="border:1px solid #e2e8f0;font-size:13px;color:#64748b">Time</td><td style="border:1px solid #e2e8f0;font-size:14px;color:#0f172a">${new Date().toLocaleString()}</td></tr>
+    </table>
+    <p style="font-size:14px;color:#334155;line-height:1.6;margin:0 0 8px"><strong>Message:</strong></p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap;margin:0">${safeMessage}</div>
+  </td></tr>
+  <tr><td style="padding:16px 32px 32px;border-top:1px solid #f1f5f9">
+    <p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.5">This report was submitted from Panic Mode on StegShield X. Reply directly to ${fromEmail} to contact the user.</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>`
+
+    const text = `SECURITY INCIDENT REPORT (Panic Mode)\n\nUser: ${userName}\nEmail: ${fromEmail}\nIP: ${ip || "Unknown"}\nTime: ${new Date().toLocaleString()}\n\nMessage:\n${message}`
+
+    try {
+      await this.transporter.sendMail({
+        from: `"StegShield X Security" <${from}>`,
+        to: this.securityContact,
+        replyTo: fromEmail,
+        subject,
+        text,
+        html,
+        headers: {
+          Priority: "urgent",
+          Importance: "high",
+          "X-Mailer": "StegShield X",
+        },
+      })
+    } catch (err) {
+      console.error("Failed to send security report email:", err)
+    }
+  }
+
   async sendEmailChangedNotification(to: string, userName: string, newEmail: string) {
     if (!this.transporter) return
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
@@ -153,6 +214,15 @@ export class MailService {
     } catch (err) {
       console.error("Failed to send email change notification:", err)
     }
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
   }
 
   private buildTemplate(opts: { invitedByName: string; organizationName: string; role: string; acceptUrl: string; declineUrl: string }) {
