@@ -25,6 +25,8 @@ services:
         generateValue: true
       - key: REFRESH_TOKEN_SECRET
         generateValue: true
+      - key: RESET_TOKEN_SECRET
+        generateValue: true
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: SECRET_KEY
