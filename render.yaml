@@ -8,6 +8,7 @@ services:
   - type: web
     name: stegshield-backend
     env: node
+    plan: free
     rootDir: backend
     buildCommand: npm install && npm run prisma:generate && npm run build
     startCommand: npm run start:prod
@@ -41,6 +42,7 @@ services:
   - type: web
     name: stegshield-ai-service
     env: python
+    plan: free
     rootDir: ai-service
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
