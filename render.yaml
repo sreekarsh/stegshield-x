@@ -49,5 +49,4 @@ databases:
   # Free PostgreSQL Database Instance
   - name: stegshield-db
     databaseName: stegshield
-    user: postgres
     plan: free
