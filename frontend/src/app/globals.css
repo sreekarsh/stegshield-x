@@ -202,3 +202,11 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Position Next.js dev indicator portal container to bottom right */
+nextjs-portal,
+#nextjs-dev-tools {
+  left: auto !important;
+  right: 16px !important;
+  bottom: 16px !important;
+}

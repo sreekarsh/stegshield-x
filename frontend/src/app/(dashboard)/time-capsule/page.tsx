@@ -148,7 +148,7 @@ export default function TimeCapsulePage() {
       const capsule = await api.get<Capsule>(`/time-capsule/${id}`)
       setOpenedCapsule(capsule)
       setCapsules(prev => prev.map(c => c.id === id ? { ...c, isOpened: true, openedAt: capsule.openedAt } : c))
-      if (!capsule.encryptedData?.startsWith("VA==") && capsule.encryptedData?.length! > 50) {
+      if (capsule.encryptedData && capsule.encryptedData.startsWith("VA")) {
         setDecryptedData(null)
       } else {
         setDecryptedData(capsule.encryptedData || null)

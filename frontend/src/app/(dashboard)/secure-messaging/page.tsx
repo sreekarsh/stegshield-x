@@ -176,7 +176,7 @@ export default function SecureMessagingPage() {
     return () => { cancelled = true }
   }, [debouncedSearch, searchUsers, user?.id])
 
-  const handleSendRequest = async (userId: string, userName?: string) => {
+  const handleSendRequest = async (userId: string, userName?: string, avatar?: string | null) => {
     if (userId === user?.id) {
       toast.error("You cannot send a request to yourself")
       return
@@ -187,7 +187,7 @@ export default function SecureMessagingPage() {
     }
     setSendingRequest(userId)
     try {
-      await sendContactRequest(userId, userName)
+      await sendContactRequest(userId, userName, avatar)
       toast.success("Contact request sent")
     } catch {
       toast.error("Failed to send request")
@@ -629,7 +629,7 @@ export default function SecureMessagingPage() {
                                 variant="cyber"
                                 size="sm"
                                 className="h-8 text-xs shrink-0"
-                                onClick={() => handleSendRequest(u.id, u.name)}
+                                onClick={() => handleSendRequest(u.id, u.name, u.avatar)}
                                 disabled={sendingRequest === u.id}
                               >
                                 {sendingRequest === u.id ? (

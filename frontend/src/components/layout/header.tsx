@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle, Eye } from "lucide-react"
+import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle, Eye, LifeBuoy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/useAuthStore"
 import { api } from "@/lib/api"
 import { getAvatarUrl } from "@/lib/utils"
 import { UserProfileModal } from "@/components/UserProfileModal"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -114,21 +115,49 @@ export const Header = memo(function Header() {
       </div>
 
       <div className="flex items-center gap-2">
-        <ThemeToggle />
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Contact support team"
+                onClick={() => router.push("/help?support=1")}
+                className="relative text-muted-foreground hover:text-cyber-400"
+              >
+                <LifeBuoy className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Contact Support Team</TooltipContent>
+          </Tooltip>
 
-        {/* Notifications Dropdown */}
-        <DropdownMenu onOpenChange={(open) => { if (open) fetchNotifications() }}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications dropdown">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 min-w-[1.25rem] px-1 flex items-center justify-center text-[10px] bg-cyber-500 text-black font-bold">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 p-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <ThemeToggle />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Change Theme</TooltipContent>
+          </Tooltip>
+
+          {/* Notifications Dropdown */}
+          <DropdownMenu onOpenChange={(open) => { if (open) fetchNotifications() }}>
+            <Tooltip>
+              <DropdownMenuTrigger asChild>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Open notifications dropdown">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-5 min-w-[1.25rem] px-1 flex items-center justify-center text-[10px] bg-cyber-500 text-black font-bold">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+              </DropdownMenuTrigger>
+              <TooltipContent>Notifications</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-80 p-2">
             <div className="flex items-center justify-between px-2 py-1.5 mb-1 border-b border-border">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notifications</span>
               {unreadCount > 0 && (
@@ -166,33 +195,48 @@ export const Header = memo(function Header() {
               <Link href="/notifications">View All Notifications</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
 
-        {/* Help Icon Link */}
-        <Link href="/help">
-          <Button variant="ghost" size="icon" aria-label="Open Help & Knowledge Center">
-            <HelpCircle className="h-5 w-5" />
-          </Button>
-        </Link>
+          {/* Help Icon Link */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/help">
+                <Button variant="ghost" size="icon" aria-label="Open Help & Knowledge Center">
+                  <HelpCircle className="h-5 w-5" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Help Center</TooltipContent>
+          </Tooltip>
 
-        {/* Settings Icon Link */}
-        <Link href="/settings">
-          <Button variant="ghost" size="icon" aria-label="Open settings">
-            <Settings className="h-5 w-5" />
-          </Button>
-        </Link>
+          {/* Settings Icon Link */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/settings">
+                <Button variant="ghost" size="icon" aria-label="Open settings">
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
 
-        {/* User Profile Avatar & Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-cyber-500/20 hover:ring-cyber-500/50 transition-all">
-              <AvatarImage src={getAvatarUrl(user?.avatar)} />
-              <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 p-2">
+          {/* User Profile Avatar & Dropdown */}
+          <DropdownMenu>
+            <Tooltip>
+              <DropdownMenuTrigger asChild>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-cyber-500/20 hover:ring-cyber-500/50 transition-all">
+                    <AvatarImage src={getAvatarUrl(user?.avatar)} />
+                    <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+              </DropdownMenuTrigger>
+              <TooltipContent>Account & Profile</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-56 p-2">
             <div className="px-2 py-2 border-b border-border">
               <p className="text-sm font-semibold text-foreground truncate">{user?.name || "Security Analyst"}</p>
               <p className="text-xs text-muted-foreground truncate">{user?.email || "analyst@stegshield.local"}</p>
@@ -242,7 +286,8 @@ export const Header = memo(function Header() {
               <LogOut className="h-4 w-4 mr-2" /> Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </TooltipProvider>
       </div>
 
       <UserProfileModal

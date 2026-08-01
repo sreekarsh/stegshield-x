@@ -3,6 +3,7 @@
 import { ThemeProvider } from "@/providers/theme-provider"
 import { QueryProvider } from "@/providers/query-provider"
 import { Toaster } from "react-hot-toast"
+import { DevIndicatorRelocator } from "@/components/DevIndicatorRelocator"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       themes={["dark", "light", "cyberpunk", "midnight", "forest", "sunset"]}
     >
       <QueryProvider>
+        <DevIndicatorRelocator />
         {children}
         <Toaster
           position="top-right"

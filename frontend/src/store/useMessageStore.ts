@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import type { Message, ContactRequest, User } from "@/types"
 import { useAuthStore } from "./useAuthStore"
+import { api } from "@/lib/api"
 import { encryptStore, decryptStore } from "@/lib/crypto-store"
 import { encryptMessageContent, decryptMessageContent, isSelfDestructed } from "@/lib/message-crypto"
 
@@ -104,13 +105,13 @@ interface MessageStore {
   editMessage: (messageId: string, newContent: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
   selectContact: (id: string | null) => void
-  addContact: (id: string, name: string) => Promise<void>
+  addContact: (id: string, name: string, avatar?: string | null) => Promise<void>
   removeContact: (id: string) => Promise<void>
   reorderContacts: (contacts: Contact[]) => void
   clearError: () => void
 
   searchUsers: (query: string) => Promise<User[]>
-  sendContactRequest: (userId: string, userName?: string) => Promise<void>
+  sendContactRequest: (userId: string, userName?: string, avatar?: string | null) => Promise<void>
   acceptContactRequest: (requestId: string) => Promise<void>
   rejectContactRequest: (requestId: string) => Promise<void>
   cancelContactRequest: (requestId: string) => Promise<void>
@@ -139,15 +140,31 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       if (local.messages[convId].length !== before) changed = true
     }
     if (changed) await saveLocal(local)
-    const contacts = local.contacts.length > 0
-      ? local.contacts
+
+    let finalContacts: Contact[] = local.contacts
+    try {
+      const res = await api.get<{ contacts: any[] }>("/contacts")
+      if (res?.contacts && Array.isArray(res.contacts)) {
+        const backendContacts: Contact[] = res.contacts.map((c: any) => ({
+          id: c.contact.id,
+          name: c.contact.name || c.alias || "User",
+          avatar: c.contact.avatar || null,
+        }))
+        const mergedMap = new Map<string, Contact>()
+        local.contacts.forEach(c => mergedMap.set(c.id, c))
+        backendContacts.forEach(c => mergedMap.set(c.id, c))
+        finalContacts = Array.from(mergedMap.values())
+        local.contacts = finalContacts
+        await saveLocal(local)
+      }
+    } catch {}
+
+    const contacts = finalContacts.length > 0
+      ? finalContacts
       : [
           { id: "agent-1", name: "Alex Mercer", avatar: DEMO_USER_DETAILS["agent-1"].avatar },
           { id: "agent-2", name: "Sam Rivera", avatar: DEMO_USER_DETAILS["agent-2"].avatar },
         ]
-    if (local.contacts.length === 0) {
-      await saveLocal({ contacts, messages: local.messages })
-    }
     set({ contacts, loading: false })
   },
 
@@ -257,8 +274,8 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     }))
   },
 
-  addContact: async (id: string, name: string) => {
-    const newContact: Contact = { id, name, avatar: DEMO_USER_DETAILS[id]?.avatar || null }
+  addContact: async (id: string, name: string, avatar?: string | null) => {
+    const newContact: Contact = { id, name, avatar: avatar || DEMO_USER_DETAILS[id]?.avatar || null }
     const local = await loadLocal()
     if (!local.contacts.some(c => c.id === id)) {
       local.contacts.push(newContact)
@@ -268,6 +285,9 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   },
 
   removeContact: async (id: string) => {
+    try {
+      await api.delete(`/contacts/${id}`)
+    } catch {}
     const local = await loadLocal()
     const updated = local.contacts.filter(c => c.id !== id)
     await saveLocal({ ...local, contacts: updated })
@@ -286,20 +306,15 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   },
 
   searchUsers: async (query: string): Promise<User[]> => {
-    const q = query.toLowerCase()
+    if (!query || query.trim().length < 2) return []
+    const q = query.toLowerCase().trim()
     try {
-      const token = useAuthStore.getState().accessToken
-      if (token) {
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
-        const res = await fetch(`${API}/users/search?q=${encodeURIComponent(query)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.users?.length > 0) return data.users
-        }
+      const res = await api.get<{ users: User[] }>(`/users/search?q=${encodeURIComponent(q)}`)
+      if (res?.users && Array.isArray(res.users) && res.users.length > 0) {
+        return res.users
       }
     } catch {}
+
     const seen = new Set<string>()
     const results: User[] = []
     for (const u of DEMO_USERS) {
@@ -312,12 +327,17 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     return results
   },
 
-  sendContactRequest: async (userId: string, userName?: string) => {
+  sendContactRequest: async (userId: string, userName?: string, avatar?: string | null) => {
     const myId = getMyId() || "local-user"
     const name = userName || CONTACT_NAMES[userId] || userId
     const myName = (() => {
       try { return useAuthStore.getState().user?.name } catch { return null }
     })() || "Unknown User"
+
+    try {
+      await api.post("/contacts", { contactId: userId })
+    } catch {}
+
     const req: ContactRequest = {
       id: genId(),
       fromUserId: myId,
@@ -326,7 +346,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       toUserId: userId,
       toUserName: name,
       toUserEmail: "",
-      avatar: DEMO_USER_DETAILS[userId]?.avatar || null,
+      avatar: avatar || DEMO_USER_DETAILS[userId]?.avatar || null,
       status: "pending",
       createdAt: new Date().toISOString(),
     }
@@ -342,6 +362,11 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     const req = get().pendingRequests.find(r => r.id === requestId)
     if (!req) return
     const myId = getMyId() || "local-user"
+
+    try {
+      await api.post("/contacts", { contactId: req.fromUserId })
+    } catch {}
+
     const local = await loadLocalRequests()
     const updated = local.map(r =>
       r.id === requestId ? { ...r, status: "accepted" as const } : r

@@ -24,7 +24,12 @@ export class ContactsService {
     })
 
     if (existing) {
-      throw new ConflictException("Contact already exists")
+      return this.prisma.contact.findUnique({
+        where: { id: existing.id },
+        include: {
+          contact: { select: { id: true, name: true, email: true, avatar: true, role: true } },
+        },
+      })
     }
 
     return this.prisma.contact.create({

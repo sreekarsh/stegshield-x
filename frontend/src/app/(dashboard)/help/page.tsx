@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   HelpCircle,
@@ -32,11 +32,16 @@ import {
   ArrowRight,
   ShieldAlert,
   Zap,
+  LifeBuoy,
+  Send,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { api, ApiError } from "@/lib/api"
+import toast from "react-hot-toast"
 
 // Module explanations for new users
 const moduleGuides = [
@@ -205,6 +210,17 @@ const faqs = [
 export default function HelpPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
+  const [showSupportDialog, setShowSupportDialog] = useState(false)
+  const [supportMessage, setSupportMessage] = useState("")
+  const [supportCategory, setSupportCategory] = useState("")
+  const [supportError, setSupportError] = useState("")
+  const [supportSending, setSupportSending] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("support=1")) {
+      setShowSupportDialog(true)
+    }
+  }, [])
 
   const filteredGuides = moduleGuides.map((group) => ({
     ...group,
@@ -224,6 +240,38 @@ export default function HelpPage() {
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index)
+  }
+
+  const handleSupportSend = async () => {
+    if (!supportMessage.trim()) {
+      setSupportError("Please describe the issue you are facing")
+      return
+    }
+    setSupportSending(true)
+    setSupportError("")
+    try {
+      await api.post("/support/contact", {
+        message: supportMessage.trim(),
+        category: supportCategory.trim() || undefined,
+      })
+      toast.success("Support request sent — the team will get back to you")
+      setShowSupportDialog(false)
+      setSupportMessage("")
+      setSupportCategory("")
+    } catch (err) {
+      setSupportError(err instanceof ApiError ? err.message : "Failed to send request. Please try again.")
+    } finally {
+      setSupportSending(false)
+    }
+  }
+
+  const handleSupportDialogClose = (open: boolean) => {
+    if (!open && !supportSending) {
+      setShowSupportDialog(false)
+      setSupportMessage("")
+      setSupportCategory("")
+      setSupportError("")
+    }
   }
 
   return (
@@ -246,7 +294,7 @@ export default function HelpPage() {
             </p>
           </div>
 
-          <div className="w-full md:w-80">
+          <div className="flex flex-col gap-3 md:w-80">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -257,6 +305,13 @@ export default function HelpPage() {
                 className="pl-10 h-11 bg-background/80 border-violet-500/30 focus:border-violet-500 text-sm rounded-xl"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowSupportDialog(true)}
+              className="h-11 border-violet-500/30 text-violet-300 hover:bg-violet-500/10 hover:text-violet-200 rounded-xl"
+            >
+              <LifeBuoy className="h-4 w-4 mr-2" /> Contact Support & Report an Issue
+            </Button>
           </div>
         </div>
       </div>
@@ -416,6 +471,53 @@ export default function HelpPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showSupportDialog}
+        onOpenChange={handleSupportDialogClose}
+        onConfirm={handleSupportSend}
+        title="Contact Support"
+        description="Describe the issue you are experiencing. Your report is sent directly to the security & support team."
+        confirmLabel="Send Report"
+        variant="default"
+        loading={supportSending}
+      >
+        <div className="space-y-3 pt-2 w-full">
+          <div className="space-y-1.5">
+            <label htmlFor="support-category" className="text-sm font-medium text-left block">Category (optional)</label>
+            <select
+              id="support-category"
+              value={supportCategory}
+              onChange={(e) => setSupportCategory(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400"
+            >
+              <option value="">Select a category...</option>
+              <option value="Bug Report">Bug Report</option>
+              <option value="Account Issue">Account Issue</option>
+              <option value="Security Concern">Security Concern</option>
+              <option value="Feature Request">Feature Request</option>
+              <option value="Billing">Billing</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="support-message" className="text-sm font-medium text-left block">Issue details</label>
+            <textarea
+              id="support-message"
+              value={supportMessage}
+              onChange={(e) => { setSupportMessage(e.target.value); setSupportError("") }}
+              placeholder="Describe the problem in detail — what happened, what you expected, and any steps to reproduce..."
+              className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400 resize-y"
+              maxLength={5000}
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{supportMessage.length}/5000</span>
+            {supportError && <span className="text-destructive">{supportError}</span>}
+          </div>
+        </div>
+      </ConfirmDialog>
     </div>
   )
 }

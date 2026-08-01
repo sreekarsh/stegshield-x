@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from "@nestjs/testing"
+import { Test, TestingModule } from "@nestjs/testing"
 import { NotFoundException, ConflictException } from "@nestjs/common"
 import { ContactsService } from "./contacts.service"
 import { PrismaService } from "../prisma/prisma.service"
@@ -37,7 +37,7 @@ describe("ContactsService", () => {
     it("should add a contact", async () => {
       prisma.contact.findUnique.mockResolvedValue(null)
       const result = await service.add("user-1", { contactId: "contact-1", alias: "My Friend" })
-      expect(result.contact.name).toBe("Bob")
+      expect(result!.contact.name).toBe("Bob")
       expect(prisma.contact.create).toHaveBeenCalled()
     })
 
@@ -50,9 +50,10 @@ describe("ContactsService", () => {
       await expect(service.add("user-1", { contactId: "ghost" })).rejects.toThrow(NotFoundException)
     })
 
-    it("should reject duplicate contact", async () => {
-      prisma.contact.findUnique.mockResolvedValue({ id: "existing", ownerId: "user-1", contactId: "contact-1" })
-      await expect(service.add("user-1", { contactId: "contact-1" })).rejects.toThrow(ConflictException)
+    it("should return existing contact on duplicate", async () => {
+      prisma.contact.findUnique.mockResolvedValue({ id: "existing", ownerId: "user-1", contactId: "contact-1", contact: { id: "contact-1", name: "Bob", email: "bob@test.com", avatar: null } })
+      const res = await service.add("user-1", { contactId: "contact-1" })
+      expect(res!.id).toBe("existing")
     })
   })
 

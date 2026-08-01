@@ -34,6 +34,7 @@ import { ContactsModule } from "./contacts/contacts.module"
 import { PdfModule } from "./pdf/pdf.module"
 import { UrlCheckerModule } from "./url-checker/url-checker.module"
 import { DashboardModule } from "./dashboard/dashboard.module"
+import { SupportModule } from "./support/support.module"
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { DashboardModule } from "./dashboard/dashboard.module"
     SecretLanguageModule,
     ContactsModule,
     DashboardModule,
+    SupportModule,
   ],
   controllers: [HealthController],
   providers: [

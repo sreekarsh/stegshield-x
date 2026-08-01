@@ -66,18 +66,17 @@ export class UsersController {
   }
 
 
+  @Get("search")
+  @UseGuards(JwtAuthGuard)
+  async search(@Query("q") q: string, @Req() req: any) {
+    return this.usersService.search(q, req.user.id)
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.OWNER)
   async findAll() {
     return this.usersService.findAll()
-  }
-
-  @Get("search")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER)
-  async search(@Query("q") q: string, @Req() req: any) {
-    return this.usersService.search(q, req.user.id)
   }
 
   @Get(":id")

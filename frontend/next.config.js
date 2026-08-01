@@ -6,6 +6,10 @@ const nextConfig = {
     '192.168.56.1',
     '192.168.56.1:3000',
   ],
+  devIndicators: {
+    appIsrStatus: true,
+    buildActivityPosition: 'bottom-right',
+  },
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
