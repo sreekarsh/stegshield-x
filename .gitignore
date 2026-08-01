@@ -19,5 +19,7 @@ uploads/
 *.key
 run.bat
 sree.txt
+testss.txt
 frontend/.env.local
 *.log
+*.tsbuildinfo
