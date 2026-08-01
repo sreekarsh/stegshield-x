@@ -35,6 +35,7 @@ export default function WatermarkingPage() {
   const [embedding, setEmbedding] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [clearingHistory, setClearingHistory] = useState(false)
   const [watermarkText, setWatermarkText] = useState("")
   const [watermarkX, setWatermarkX] = useState(85)
   const [watermarkY, setWatermarkY] = useState(85)
@@ -301,6 +302,20 @@ export default function WatermarkingPage() {
       toast.error("Failed to delete")
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const clearAllHistory = async () => {
+    if (items.length === 0) return
+    setClearingHistory(true)
+    try {
+      await api.delete("/watermark/clear/all")
+      setItems([])
+      toast.success("Watermark history cleared")
+    } catch {
+      toast.error("Failed to clear watermark history")
+    } finally {
+      setClearingHistory(false)
     }
   }
 
@@ -659,10 +674,26 @@ export default function WatermarkingPage() {
         {/* ── HISTORY TAB ── */}
         <TabsContent value="history">
           <Card className="glass-card">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="flex items-center gap-2">
                 <List className="h-5 w-5 text-cyber-400" /> Watermark History ({items.length})
               </CardTitle>
+              {items.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllHistory}
+                  disabled={clearingHistory}
+                  className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border-border/50 transition-colors"
+                >
+                  {clearingHistory ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" />
+                  )}
+                  Clear History
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {loading ? (

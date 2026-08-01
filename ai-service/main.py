@@ -93,7 +93,11 @@ async def validate_file_size(file: UploadFile):
     return contents
 
 @app.get("/health")
-async def health(auth=Depends(verify_auth)):
+async def health():
+    return {"status": "healthy", "service": "stegshield-ai", "version": "1.0.0"}
+
+@app.get("/")
+async def root():
     return {"status": "healthy", "service": "stegshield-ai", "version": "1.0.0"}
 
 from pydantic import BaseModel
@@ -107,14 +111,124 @@ class ChatBody(BaseModel):
     messages: List[ChatMessage]
     model: Optional[str] = None
 
+SYSTEM_PROMPT = """You are StegShield X AI Security Assistant, an elite Cybersecurity & Digital Forensics AI Specialist.
+You specialize in:
+1. Steganography Detection & Payload Extraction (LSB, DCT, F5, OutGuess, Palette analysis).
+2. Digital Forensics & File Carving (Entropy analysis, string extraction, EXIF metadata privacy).
+3. Image Tamper & Deepfake Detection (ELA, Frequency domain FFT analysis, copy-move detection).
+4. Password Security & Cryptography (Argon2id, AES-256-GCM, Shamir Secret Sharing, RSA).
+5. Threat Intelligence & Secure Communications.
+
+Provide clear, highly professional, precise, and actionable security advice formatted with clean markdown, bolding, and bullet points."""
+
+def get_ai_config():
+    """Detects active AI provider and key from environment variables."""
+    load_dotenv(override=True)
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip() or os.getenv("GOOGLE_API_KEY", "").strip()
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    github_key = os.getenv("GITHUB_API_KEY", "").strip()
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+
+    if groq_key:
+        return {
+            "key": groq_key,
+            "url": "https://api.groq.com/openai/v1/chat/completions",
+            "model": os.getenv("AI_MODEL", "llama-3.3-70b-versatile"),
+            "provider": "Groq AI"
+        }
+    elif gemini_key:
+        return {
+            "key": gemini_key,
+            "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            "model": os.getenv("AI_MODEL", "gemini-1.5-flash"),
+            "provider": "Google Gemini"
+        }
+    elif openai_key:
+        return {
+            "key": openai_key,
+            "url": "https://api.openai.com/v1/chat/completions",
+            "model": os.getenv("AI_MODEL", "gpt-4o-mini"),
+            "provider": "OpenAI"
+        }
+    elif github_key:
+        return {
+            "key": github_key,
+            "url": "https://models.inference.ai.azure.com/chat/completions",
+            "model": os.getenv("AI_MODEL", "gpt-4o-mini"),
+            "provider": "GitHub Models"
+        }
+    elif deepseek_key:
+        return {
+            "key": deepseek_key,
+            "url": "https://api.deepseek.com/chat/completions",
+            "model": os.getenv("AI_MODEL", "deepseek-chat"),
+            "provider": "DeepSeek"
+        }
+    return None
+
+@app.post("/chat/stream")
+async def chat_stream(body: ChatBody, auth=Depends(verify_auth)):
+    """Streaming chat completion (SSE event stream)."""
+    config = get_ai_config()
+    if not config:
+        async def offline_generator():
+            msg = "🔒 **StegShield X AI (Offline Mode)**\n\nNo AI API key is currently configured. To enable live AI responses, add one of the following keys to your `ai-service/.env` file:\n\n• **Groq API Key** (`GROQ_API_KEY`) — *Free & Ultra Fast (Recommended)*\n• **Google Gemini Key** (`GEMINI_API_KEY`) — *Free Tier available*\n• **OpenAI API Key** (`OPENAI_API_KEY`) — *gpt-4o / gpt-4o-mini*\n• **GitHub Models Key** (`GITHUB_API_KEY`) — *Free for GitHub accounts*\n• **DeepSeek Key** (`DEEPSEEK_API_KEY`) — *DeepSeek R1 / Chat*\n\nRestart `ai-service` after setting your key."
+            yield f"data: {json.dumps({'content': msg})}\n\n"
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(offline_generator(), media_type="text/event-stream")
+
+    async def stream_generator():
+        payload = {
+            "model": config["model"],
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + [
+                {"role": m.role, "content": m.content} for m in body.messages
+            ],
+            "stream": True,
+            "temperature": 0.7,
+            "max_tokens": 1024,
+        }
+        headers = {
+            "Authorization": f"Bearer {config['key']}",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", config["url"], json=payload, headers=headers) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        if line.startswith("data: "):
+                            data_str = line[6:].strip()
+                            if data_str == "[DONE]":
+                                yield "data: [DONE]\n\n"
+                                break
+                            try:
+                                parsed = json.loads(data_str)
+                                delta = parsed.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if delta:
+                                    yield f"data: {json.dumps({'content': delta})}\n\n"
+                            except Exception:
+                                pass
+        except Exception as e:
+            logger.error(f"Stream error: {e}", exc_info=True)
+            provider_name = config["provider"]
+            err_msg = f"*(AI Service Error ({provider_name}): {str(e)})*"
+            yield f"data: {json.dumps({'content': err_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
 @app.post("/chat/complete")
 async def chat_complete(body: ChatBody, auth=Depends(verify_auth)):
     """Non-streaming chat completion (collects full response)."""
-    if not GITHUB_API_KEY:
-        return {"content": "AI service running in offline mode — no API key configured."}
+    config = get_ai_config()
+    if not config:
+        return {"content": "🔒 AI service running in offline mode — no API key configured in ai-service/.env."}
 
     payload = {
-        "model": AI_MODEL,
+        "model": config["model"],
         "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + [
             {"role": m.role, "content": m.content} for m in body.messages
         ],
@@ -123,13 +237,13 @@ async def chat_complete(body: ChatBody, auth=Depends(verify_auth)):
         "max_tokens": 1024,
     }
     headers = {
-        "Authorization": f"Bearer {GITHUB_API_KEY}",
+        "Authorization": f"Bearer {config['key']}",
         "Content-Type": "application/json",
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"{GITHUB_API_BASE}/chat/completions",
+                config["url"],
                 json=payload,
                 headers=headers,
             )
@@ -139,7 +253,7 @@ async def chat_complete(body: ChatBody, auth=Depends(verify_auth)):
             return {"content": content}
     except Exception as e:
         logger.error(f"Chat completion error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="AI service chat completion failed")
+        raise HTTPException(status_code=500, detail=f"AI service chat completion failed: {str(e)}")
 
 def _analyze_entropy_sync(contents: bytes, filename: str):
     data = np.frombuffer(contents, dtype=np.uint8)
@@ -247,6 +361,7 @@ async def analyze_stego(file: UploadFile = File(...), auth=Depends(verify_auth))
     return await _run_cpu(_analyze_stego_sync, contents, file.filename)
 
 @app.post("/analyze/threat")
+@app.post("/analyze/threat")
 async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)):
     contents = await validate_file_size(file)
     file_hash = hashlib.sha256(contents).hexdigest()
@@ -256,43 +371,166 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
     indicators = []
 
     file_format = detect_file_format(contents)
+    is_compressed_format = file_format in {"png", "jpeg", "webp", "gif", "tiff", "zip", "pdf", "rar", "gz", "mp4", "mkv", "riff"}
+    filename = file.filename or "uploaded_file"
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
 
-    entropy = 0
+    # 1. Extension Mismatch Check
+    known_ext_map = {
+        "png": "png", "jpg": "jpeg", "jpeg": "jpeg", "webp": "webp", "gif": "gif",
+        "pdf": "pdf", "zip": "zip", "exe": "pe", "dll": "pe", "elf": "elf"
+    }
+    expected_format = known_ext_map.get(ext)
+    if expected_format and file_format and expected_format != file_format:
+        if file_format in {"pe", "exe", "elf", "macho"}:
+            threat_factors += 60
+            indicators.append({
+                "type": "extension_spoofing",
+                "severity": "critical",
+                "value": f".{ext} -> {file_format.upper()}",
+                "description": f"CRITICAL: Extension Spoofing — file named .{ext} is actually an executable binary ({file_format.upper()})"
+            })
+        else:
+            threat_factors += 15
+            indicators.append({
+                "type": "format_mismatch",
+                "severity": "medium",
+                "value": f".{ext} vs {file_format.upper()}",
+                "description": f"Extension Mismatch: File has .{ext} extension but contains {file_format.upper()} container structure"
+            })
+
+    # 2. Context-aware Entropy Assessment
+    entropy = 0.0
     if size > 0:
         data = np.frombuffer(contents, dtype=np.uint8)
         hist, _ = np.histogram(data, bins=256, range=(0, 256))
         hist = hist / hist.sum() if hist.sum() > 0 else hist
         entropy = float(-np.sum(hist * np.log2(hist + 1e-10)))
 
-    if entropy > 7.5:
-        threat_factors += 25
-        indicators.append({"type": "high_entropy", "severity": "high", "value": f"{entropy:.2f}", "description": "File has high entropy — likely encrypted, compressed, or obfuscated"})
-    elif entropy > 6.5:
-        threat_factors += 10
-        indicators.append({"type": "elevated_entropy", "severity": "medium", "value": f"{entropy:.2f}", "description": "File has elevated entropy"})
+    if is_compressed_format:
+        if entropy > 7.99:
+            threat_factors += 10
+            indicators.append({
+                "type": "max_entropy",
+                "severity": "medium",
+                "value": f"{entropy:.2f}",
+                "description": "Uniform maximum entropy detected in compressed container"
+            })
+        else:
+            indicators.append({
+                "type": "normal_compressed_entropy",
+                "severity": "info",
+                "value": f"{entropy:.2f}",
+                "description": f"Normal expected entropy ({entropy:.2f}) for {file_format.upper() if file_format else 'compressed'} format"
+            })
+    else:
+        if entropy > 7.4:
+            threat_factors += 25
+            indicators.append({
+                "type": "high_entropy",
+                "severity": "high",
+                "value": f"{entropy:.2f}",
+                "description": "High entropy in uncompressed file — likely encrypted or obfuscated payload"
+            })
+        elif entropy > 6.5:
+            threat_factors += 10
+            indicators.append({
+                "type": "elevated_entropy",
+                "severity": "medium",
+                "value": f"{entropy:.2f}",
+                "description": "Elevated entropy for uncompressed data"
+            })
 
-    executable_headers_found = scan_executable_headers(contents)
+    # 3. Executable Header & Overlay Scan
+    executable_headers_found = scan_executable_headers(contents, file_format)
     executable_count = len(executable_headers_found)
     if executable_count > 0:
-        threat_factors += min(executable_count * 15, 30)
-        for h in executable_headers_found:
-            indicators.append({"type": "executable_header", "severity": "critical", "value": h["type"], "description": f"Executable header ({h['description']}) at offset {h['offset']}"})
+        is_known_exec_ext = ext in {"exe", "dll", "elf", "so", "dylib", "bin", "sh", "bat", "cmd"}
+        if is_known_exec_ext:
+            indicators.append({
+                "type": "valid_executable",
+                "severity": "info",
+                "value": executable_headers_found[0]["type"],
+                "description": f"Valid executable binary signature ({executable_headers_found[0]['description']})"
+            })
+        else:
+            threat_factors += 50
+            for h in executable_headers_found:
+                indicators.append({
+                    "type": "executable_in_media",
+                    "severity": "critical",
+                    "value": h["type"],
+                    "description": f"Executable header ({h['description']}) detected in non-executable container at offset {h['offset']}"
+                })
 
+    # 4. Appended Payload / EOF Overlay Scan
+    overlay_found = False
+    if file_format == "png":
+        iend_idx = contents.find(b"IEND\xaeB`\x82")
+        if iend_idx != -1 and (iend_idx + 12) < size:
+            overlay_size = size - (iend_idx + 12)
+            if overlay_size > 64:
+                overlay_found = True
+                threat_factors += 30
+                indicators.append({
+                    "type": "appended_overlay",
+                    "severity": "high",
+                    "value": f"{overlay_size} bytes",
+                    "description": f"Appended Overlay Data: {overlay_size} bytes hidden past PNG IEND EOF marker"
+                })
+    elif file_format == "jpeg":
+        eoi_idx = contents.rfind(b"\xff\xd9")
+        if eoi_idx != -1 and (eoi_idx + 2) < size:
+            overlay_size = size - (eoi_idx + 2)
+            if overlay_size > 64:
+                overlay_found = True
+                threat_factors += 30
+                indicators.append({
+                    "type": "appended_overlay",
+                    "severity": "high",
+                    "value": f"{overlay_size} bytes",
+                    "description": f"Appended Overlay Data: {overlay_size} bytes hidden past JPEG EOI marker"
+                })
+
+    # 5. Embedded Script Payload Scanner
+    script_keywords = [b"<script", b"javascript:", b"eval(", b"WScript.Shell", b"powershell", b"cmd.exe", b"vbaProject.bin"]
+    detected_scripts = [kw.decode("ascii", errors="ignore") for kw in script_keywords if kw in contents]
+    if detected_scripts:
+        threat_factors += 35
+        indicators.append({
+            "type": "script_payload",
+            "severity": "high",
+            "value": f"{len(detected_scripts)} vectors",
+            "description": f"Embedded script/macro vectors detected: {', '.join(detected_scripts)}"
+        })
+
+    # 6. Malicious String Scan
     malicious_strings_found = scan_malicious_strings(contents)
     if malicious_strings_found:
-        threat_factors += min(len(malicious_strings_found) * 5, 30)
-        indicators.append({"type": "malicious_strings", "severity": "high", "value": f"{len(malicious_strings_found)} strings", "description": f"Suspicious API strings detected: {', '.join(malicious_strings_found[:10])}"})
+        threat_factors += min(len(malicious_strings_found) * 10, 30)
+        indicators.append({
+            "type": "malicious_strings",
+            "severity": "high",
+            "value": f"{len(malicious_strings_found)} strings",
+            "description": f"Suspicious API imports detected: {', '.join(malicious_strings_found[:5])}"
+        })
 
-    null_ratio = contents.count(b"\x00") / size if size > 0 else 0
-    if null_ratio > 0.5:
-        threat_factors += 15
-        indicators.append({"type": "high_null_ratio", "severity": "medium", "value": f"{null_ratio:.1%}", "description": "High null byte ratio — possible appended data or corruption"})
+    # 7. Positive Health Verification Indicators for Clean Files
+    if file_format and not indicators:
+        indicators.append({
+            "type": "magic_byte_verified",
+            "severity": "info",
+            "value": file_format.upper(),
+            "description": f"Magic Bytes Verified: Valid {file_format.upper()} container structure"
+        })
+        indicators.append({
+            "type": "structure_health",
+            "severity": "info",
+            "value": "100% Clean",
+            "description": "Structure Health: No appended payload overlay or hidden executable headers detected"
+        })
 
-    if size > 100_000_000:
-        threat_factors += 10
-        indicators.append({"type": "large_file", "severity": "low", "value": f"{size/1e6:.1f}MB", "description": "Unusually large file — may hide payloads"})
-
-    threat_score = min(threat_factors, 100)
+    threat_score = float(min(threat_factors, 100))
 
     if threat_score >= 70:
         threat_level = "critical"
@@ -303,22 +541,24 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
     else:
         threat_level = "low"
 
-    recommendations = [
-        "Scan with updated antivirus before execution",
-        "Verify file integrity with SHA-256 hash",
-        "Analyze in sandboxed environment if suspicious",
-    ]
-    if executable_count > 0:
-        recommendations.insert(0, "DO NOT EXECUTE — executable code detected in non-executable file")
-    if entropy > 7.5:
-        recommendations.insert(0, "High entropy suggests encryption/obfuscation — investigate source")
+    recommendations = []
+    if threat_score == 0:
+        recommendations.append("File container and entropy structures match official specifications. No malicious threat indicators detected.")
+    else:
+        if executable_count > 0 and threat_score >= 40:
+            recommendations.append("DO NOT EXECUTE — executable code detected inside media container.")
+        if overlay_found:
+            recommendations.append("Appended overlay data detected past EOF marker — extract and inspect trailing bytes.")
+        if detected_scripts:
+            recommendations.append("Embedded script/macro vectors detected — do not open in un-sandboxed office tools.")
+        recommendations.append("Verify SHA-256 hash against global threat intelligence feeds.")
 
     return {
-        "filename": file.filename,
+        "filename": filename,
         "hash": file_hash,
         "size": size,
         "entropy": round(entropy, 2),
-        "threat_score": float(threat_score),
+        "threat_score": threat_score,
         "threat_level": threat_level,
         "indicators": indicators,
         "recommendations": recommendations,
@@ -579,41 +819,80 @@ MALICIOUS_STRINGS = [
 def is_valid_pe_at_offset(data: bytes, offset: int) -> bool:
     if offset + 64 > len(data):
         return False
-    e_lfanew = int.from_bytes(data[offset + 0x3C : offset + 0x3C + 4], "little")
-    pe_sig_offset = offset + e_lfanew
-    if pe_sig_offset + 4 > len(data):
+    try:
+        e_lfanew = int.from_bytes(data[offset + 0x3C : offset + 0x3C + 4], "little")
+        if e_lfanew < 64 or e_lfanew > 4096:
+            return False
+        pe_sig_offset = offset + e_lfanew
+        if pe_sig_offset + 4 > len(data):
+            return False
+        return data[pe_sig_offset : pe_sig_offset + 4] == b"PE\x00\x00"
+    except Exception:
         return False
-    if data[pe_sig_offset : pe_sig_offset + 4] != b"PE\x00\x00":
-        return False
-    return True
 
-def scan_executable_headers(data: bytes):
+def scan_executable_headers(data: bytes, file_format: Optional[str] = None):
     found = []
-    for name, magic, desc in EXECUTABLE_MAGIC_BYTES:
-        idx = 0
-        while True:
-            idx = data.find(magic, idx)
-            if idx == -1:
-                break
-            if name == "MZ":
-                if not is_valid_pe_at_offset(data, idx):
-                    idx += 1
-                    continue
-            if idx > 0:
-                found.append({
-                    "type": name,
-                    "description": desc,
-                    "offset": idx,
-                    "section": "data" if idx > 1024 else "header",
-                })
-            idx += 1
-    return found[:20]
+    
+    # 1. Shebang script header is ONLY valid at offset 0
+    if data.startswith(b"#!"):
+        first_line = data[:100].split(b"\n")[0]
+        if any(kw in first_line for kw in [b"/bin/", b"/usr/bin/", b"python", b"bash", b"sh", b"node", b"perl", b"env"]):
+            found.append({
+                "type": "Script",
+                "description": "Shell/Interpreter Script",
+                "offset": 0,
+                "section": "header",
+            })
+
+    # 2. Check PE (MZ) Header
+    idx = 0
+    while True:
+        idx = data.find(b"MZ", idx)
+        if idx == -1:
+            break
+        if is_valid_pe_at_offset(data, idx):
+            found.append({
+                "type": "MZ",
+                "description": "Windows PE Executable (DLL/EXE)",
+                "offset": idx,
+                "section": "header" if idx == 0 else "appended_payload" if idx > 512 else "data",
+            })
+            break  # Stop after finding valid PE to avoid duplicates
+        idx += 1
+
+    # 3. Check ELF Header
+    if data.startswith(b"\x7fELF"):
+        found.append({
+            "type": "ELF",
+            "description": "Linux ELF Executable",
+            "offset": 0,
+            "section": "header",
+        })
+
+    # 4. Check Mach-O Headers at offset 0
+    for magic, name in [(b"\xfe\xed\xfa\xce", "Mach-O 32"), (b"\xfe\xed\xfa\xcf", "Mach-O 64"), (b"\xca\xfe\xba\xbe", "Mach-O Fat")]:
+        if data.startswith(magic):
+            found.append({
+                "type": name,
+                "description": "macOS Mach-O Binary",
+                "offset": 0,
+                "section": "header",
+            })
+            break
+
+    return found[:10]
 
 def scan_malicious_strings(data: bytes):
     found = []
     for s in MALICIOUS_STRINGS:
-        if s in data:
-            found.append(s.decode())
+        idx = data.find(s)
+        if idx != -1:
+            before = data[idx - 1] if idx > 0 else 0
+            after = data[idx + len(s)] if idx + len(s) < len(data) else 0
+            is_boundary_before = not (65 <= before <= 90 or 97 <= before <= 122 or 48 <= before <= 57)
+            is_boundary_after = not (65 <= after <= 90 or 97 <= after <= 122 or 48 <= after <= 57)
+            if is_boundary_before and is_boundary_after:
+                found.append(s.decode("ascii", errors="ignore"))
     return found
 
 def analyze_segment_entropy(data: bytes, num_segments: int = 16):

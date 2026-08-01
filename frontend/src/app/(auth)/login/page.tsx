@@ -43,7 +43,8 @@ function LoginForm() {
       await login(form.email, form.password)
       toast.success("Welcome back!")
       const redirect = searchParams.get("redirect")
-      router.push(redirect || "/home")
+      const isValidRedirect = redirect && redirect.startsWith("/") && !["/login", "/register", "/dashboard"].includes(redirect)
+      router.push(isValidRedirect ? redirect : "/home")
     } catch {
       toast.error("Invalid credentials")
     } finally {

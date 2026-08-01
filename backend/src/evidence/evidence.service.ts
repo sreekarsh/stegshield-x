@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -11,8 +11,9 @@ const pbkdf2Sync: (password: string, salt: string, iterations: number, keylen: n
   (require("crypto") as any).pbkdf2Sync;
 import { createReadStream, unlinkSync, readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "fs";
 import { stat } from "fs/promises";
-import { join } from "path";
+import { join, extname } from "path";
 import { PrismaService } from "../prisma/prisma.service";
+import { sanitizeIp } from "../common/utils";
 import { AuditService } from "../audit/audit.service";
 import { AuditActions } from "../audit/audit.constants";
 import { ConfigService } from "@nestjs/config";
@@ -159,13 +160,12 @@ export class EvidenceService {
       throw new BadRequestException(`File too large. Maximum size: ${this.formatBytes(maxSize)}`);
     }
     const detected = this.detectMime(readFileSync(file.path));
-    if (!detected) {
-      throw new BadRequestException("Unsupported file type. File signature not recognized.");
+    if (detected) {
+      return detected;
     }
-    if (!ALLOWED_MIMES.includes(detected.mime)) {
-      throw new BadRequestException(`File type ${detected.mime} not allowed`);
-    }
-    return detected;
+    const ext = extname(file.originalname).toLowerCase() || ".bin";
+    const mime = file.mimetype || "application/octet-stream";
+    return { mime, ext };
   }
 
   private formatBytes(bytes: number): string {
@@ -222,12 +222,16 @@ export class EvidenceService {
         fileBuffer,
         Buffer.from(`\r\n--${boundary}--\r\n`),
       ]);
+      const apiKey = this.config.get("AI_API_KEY") || "stegshield-ai-key-change-in-production";
       const response = await firstValueFrom(
         this.http.post<{ threat_score: number; threat_level: string; indicators: { description: string }[] }>(
           `${this.aiServiceUrl}/analyze/threat`,
           body,
           {
-            headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+            headers: {
+              "Content-Type": `multipart/form-data; boundary=${boundary}`,
+              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+            },
             timeout: 30000,
           },
         ),
@@ -243,7 +247,7 @@ export class EvidenceService {
     }
   }
 
-  private async logAudit(userId: string, action: string, resource: string, resourceId?: string, metadata?: any) {
+  private async logAudit(userId: string, action: string, resource: string, resourceId?: string, metadata?: any, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null)
     const actionKey = (AuditActions as Record<string, string>)[action] || action
     await this.audit.log(
@@ -251,7 +255,7 @@ export class EvidenceService {
       user?.name || "system",
       actionKey,
       resource,
-      "0.0.0.0",
+      sanitizeIp(ip),
       "evidence-service",
       { resourceId, ...metadata },
     );

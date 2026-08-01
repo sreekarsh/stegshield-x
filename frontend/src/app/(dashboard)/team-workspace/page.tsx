@@ -14,6 +14,8 @@ import { PageHeader } from "@/components/layout/page-header"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { api, ApiError } from "@/lib/api"
+import { UserProfileModal, type UserProfileData } from "@/components/UserProfileModal"
+import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 
 interface Member {
@@ -81,12 +83,21 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function TeamWorkspacePage() {
+  const router = useRouter()
   const [org, setOrg] = useState<Organization | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [sentInvitations, setSentInvitations] = useState<Invitation[]>([])
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [activity, setActivity] = useState<ActivityLog[]>([])
+
+  const [profileUser, setProfileUser] = useState<UserProfileData | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+  const openProfile = (userObj: UserProfileData) => {
+    setProfileUser(userObj)
+    setShowProfileModal(true)
+  }
 
   const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -426,14 +437,35 @@ export default function TeamWorkspacePage() {
                     const roleColor = ROLE_COLORS[m.role] || "text-muted-foreground"
                     return (
                       <div key={m.id} className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 group hover:bg-muted/50 transition-colors">
-                        <Avatar className="h-10 w-10 ring-2 ring-cyber-500/10 shrink-0">
+                        <Avatar
+                          className="h-10 w-10 ring-2 ring-cyber-500/10 shrink-0 cursor-pointer hover:ring-cyber-500/60 transition-all"
+                          onClick={() => openProfile({
+                            id: m.user?.id || m.id,
+                            name: m.user?.name || undefined,
+                            email: m.user?.email || undefined,
+                            role: m.role,
+                            createdAt: m.user?.createdAt,
+                          })}
+                          title="Touch to view user details"
+                        >
                           <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-semibold">
                             {getInitials(m.user?.name ?? null, m.user?.email ?? "?")}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => openProfile({
+                            id: m.user?.id || m.id,
+                            name: m.user?.name || undefined,
+                            email: m.user?.email || undefined,
+                            role: m.role,
+                            createdAt: m.user?.createdAt,
+                          })}
+                        >
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{displayName(m.user?.name ?? null, m.user?.email ?? "unknown")}</p>
+                            <p className="text-sm font-medium truncate hover:text-cyber-400 transition-colors">
+                              {displayName(m.user?.name ?? null, m.user?.email ?? "unknown")}
+                            </p>
                             {m.role === "ADMIN" && (
                               <Badge variant="cyber" className="text-[9px] px-1.5 py-0">Admin</Badge>
                             )}
@@ -700,6 +732,13 @@ export default function TeamWorkspacePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <UserProfileModal
+        user={profileUser}
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onSendMessage={(userId) => router.push(`/secure-messaging?contactId=${userId}`)}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState, useCallback, useMemo } from "react"
 import {
@@ -414,13 +414,14 @@ export default function ReportsPage() {
                     <div>
                       <label className="text-sm font-medium mb-1.5 block">Format</label>
                       <select
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium"
                         value={reportFormat}
                         onChange={(e) => setReportFormat(e.target.value)}
                       >
                         <option value="html">HTML (Recommended)</option>
-                        <option value="json">JSON</option>
-                        <option value="csv">CSV</option>
+                        <option value="pdf">PDF (Printable Forensic Document)</option>
+                        <option value="json">JSON Data Export</option>
+                        <option value="csv">CSV Spreadsheet</option>
                       </select>
                     </div>
                   </div>

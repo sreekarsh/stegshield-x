@@ -143,7 +143,8 @@ export default function EvidenceVaultPage() {
     setLoading(true)
     try {
       const data = await api.get<{ items: EvidenceItem[] }>("/evidence")
-      setItems(data.items)
+      const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? (data as any) : []
+      setItems(list)
     } catch {
       toast.error("Failed to load evidence vault")
     } finally {

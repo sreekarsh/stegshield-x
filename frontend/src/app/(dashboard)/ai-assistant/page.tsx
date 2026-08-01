@@ -47,6 +47,19 @@ interface AnalysisResult {
   lsb_ratio?: number
   lsb_deviation?: number
   segment_cv?: number
+  recommended_action?: string
+  analysis?: string
+  dimensions?: string
+  size?: number
+  file_format?: string
+  recommendations?: string[]
+  segmented_analysis?: {
+    segments: number
+    avg_segment_entropy: number
+    max_segment_entropy: number
+    segment_std_dev: number
+    high_entropy_segments: number
+  }
   feedback?: string
   checks?: Record<string, boolean>
   entropy_bits?: number
@@ -115,9 +128,9 @@ function AnalysisCard({ analysis, type }: { analysis: AnalysisResult; type: "fil
 
   return (
     <div className="space-y-4">
-      {/* Score row */}
-      {(analysis.entropy !== undefined || analysis.threat_score !== undefined || analysis.tamper_probability !== undefined) && (
-        <div className="flex items-center justify-center gap-6 py-4">
+      {/* Score ring header */}
+      {(analysis.entropy !== undefined || analysis.threat_score !== undefined || analysis.tamper_probability !== undefined || analysis.stego_probability !== undefined || analysis.deepfake_probability !== undefined) && (
+        <div className="flex flex-wrap items-center justify-center gap-6 py-4 bg-muted/20 rounded-2xl border border-border/30">
           {analysis.entropy !== undefined && (
             <ScoreRing value={analysis.entropy} max={8} label="Entropy" color={analysis.entropy > 7.5 ? "text-red-400" : "text-green-400"} />
           )}
@@ -136,43 +149,89 @@ function AnalysisCard({ analysis, type }: { analysis: AnalysisResult; type: "fil
         </div>
       )}
 
+      {/* AI Analysis Summary text */}
+      {(analysis.analysis || analysis.recommended_action) && (
+        <div className="p-3.5 rounded-xl bg-cyber-500/10 border border-cyber-500/30 text-xs">
+          <p className="font-bold text-cyber-300 mb-1 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> AI Verdict & Recommendation
+          </p>
+          <p className="text-muted-foreground leading-relaxed">{analysis.analysis || analysis.recommended_action}</p>
+        </div>
+      )}
+
       {/* Threat level badge */}
       {analysis.threat_score !== undefined && (
         <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
-          <span className="text-xs font-medium">Threat Assessment</span>
+          <span className="text-xs font-medium">Threat Assessment Level</span>
           <Badge variant={threatVariant} className="uppercase text-xs">{threatLevel}</Badge>
         </div>
       )}
 
-      {/* LSB Analysis */}
+      {/* LSB Steganalysis Detailed Panel */}
       {analysis.lsb_ratio !== undefined && analysis.lsb_deviation !== undefined && (
-        <div className="p-3 rounded-xl bg-muted/30 border border-border/40 space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">LSB Analysis</p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">LSB Ratio</span>
-              <span className="font-mono">{analysis.lsb_ratio.toFixed(4)}</span>
+        <div className="p-3 rounded-xl bg-muted/30 border border-border/40 space-y-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">LSB Steganography Metrics</p>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="p-2 rounded-lg bg-muted/40 text-center">
+              <p className="text-[10px] text-muted-foreground">LSB Ratio</p>
+              <p className="font-mono font-bold text-foreground mt-0.5">{analysis.lsb_ratio.toFixed(4)}</p>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Deviation</span>
-              <span className={`font-mono ${analysis.lsb_deviation > 0.05 ? "text-red-400" : "text-green-400"}`}>
+            <div className="p-2 rounded-lg bg-muted/40 text-center">
+              <p className="text-[10px] text-muted-foreground">LSB Deviation</p>
+              <p className={`font-mono font-bold mt-0.5 ${analysis.lsb_deviation > 0.05 ? "text-red-400" : "text-green-400"}`}>
                 {analysis.lsb_deviation.toFixed(4)}
-              </span>
+              </p>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40 text-center">
+              <p className="text-[10px] text-muted-foreground">Segment CV</p>
+              <p className="font-mono font-bold text-foreground mt-0.5">{(analysis.segment_cv || 0).toFixed(4)}</p>
             </div>
           </div>
           <Progress value={Math.abs(analysis.lsb_deviation) * 1000} className="h-1.5" />
         </div>
       )}
 
+      {/* Segmented Entropy Analysis Profile */}
+      {analysis.segmented_analysis && (
+        <div className="p-3.5 rounded-xl bg-muted/30 border border-border/40 space-y-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+            <span>Segmented Entropy Profile</span>
+            <Badge variant={analysis.suspicious ? "destructive" : "success"} className="text-[9px]">
+              {analysis.suspicious ? "SUSPICIOUS VARIANCE" : "NORMAL DISTRIBUTION"}
+            </Badge>
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+              <span className="text-muted-foreground">Average Entropy</span>
+              <span className="font-mono font-bold">{analysis.segmented_analysis.avg_segment_entropy}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+              <span className="text-muted-foreground">Max Segment Entropy</span>
+              <span className="font-mono font-bold text-cyber-400">{analysis.segmented_analysis.max_segment_entropy}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+              <span className="text-muted-foreground">Std Deviation</span>
+              <span className="font-mono font-bold">{analysis.segmented_analysis.segment_std_dev}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+              <span className="text-muted-foreground">High Entropy Slices</span>
+              <span className={`font-mono font-bold ${analysis.segmented_analysis.high_entropy_segments > 0 ? "text-orange-400" : "text-green-400"}`}>
+                {analysis.segmented_analysis.high_entropy_segments} / {analysis.segmented_analysis.segments}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Threat Indicators */}
       {analysis.indicators && analysis.indicators.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Threat Indicators ({analysis.indicators.length})</p>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Threat Indicators ({analysis.indicators.length})</p>
           {analysis.indicators.map((ind, i) => {
             const color = ind.severity === "critical" || ind.severity === "high"
               ? "border-red-500/30 bg-red-500/10 text-red-400"
               : ind.severity === "medium" ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-              : "border-green-500/30 bg-green-500/10 text-green-400"
+              : "border-green-500/30 bg-green-500/10 text-cyan-300"
             return (
               <div key={i} className={`p-3 rounded-xl border text-xs ${color}`}>
                 <div className="flex justify-between items-start">
@@ -188,21 +247,29 @@ function AnalysisCard({ analysis, type }: { analysis: AnalysisResult; type: "fil
         </div>
       )}
 
-      {/* Hash */}
-      {analysis.hash && (
-        <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
-          <p className="text-[10px] text-muted-foreground mb-1">SHA-256 Hash</p>
-          <p className="text-[10px] font-mono break-all text-foreground">{analysis.hash}</p>
+      {/* Recommendations */}
+      {analysis.recommendations && analysis.recommendations.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 space-y-2">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Security Recommendations
+          </p>
+          <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
+            {analysis.recommendations.map((rec, i) => (
+              <li key={i} className="leading-relaxed">{rec}</li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* Entropy label */}
-      {analysis.entropy !== undefined && (
-        <p className="text-xs text-muted-foreground text-center">
-          {analysis.entropy > 7.5
-            ? "⚠️ High entropy — may contain encrypted or hidden payload"
-            : "✅ Normal entropy — no suspicious compression detected"}
-        </p>
+      {/* Hash & Metadata Footer */}
+      {analysis.hash && (
+        <div className="p-3 rounded-xl bg-muted/30 border border-border/40 flex flex-col gap-1">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>SHA-256 Hash</span>
+            {analysis.file_format && <span className="uppercase font-bold text-cyber-400">{analysis.file_format} Format</span>}
+          </div>
+          <p className="text-[10px] font-mono break-all text-foreground">{analysis.hash}</p>
+        </div>
       )}
     </div>
   )
@@ -501,8 +568,8 @@ export default function AIAssistantPage() {
                           {copiedMsg === msg.id ? <Check className="h-2.5 w-2.5 text-green-400" /> : <Copy className="h-2.5 w-2.5" />}
                         </button>
                       </div>
-                      <p className="text-[9px] text-muted-foreground mt-0.5 px-1">
-                        {msg.timestamp.toLocaleTimeString()}
+                      <p className="text-[9px] text-muted-foreground mt-0.5 px-1" suppressHydrationWarning>
+                        {msg.timestamp instanceof Date ? msg.timestamp.toLocaleTimeString() : new Date(msg.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
                     {msg.role === "user" && (

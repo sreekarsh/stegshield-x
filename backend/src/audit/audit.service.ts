@@ -1,7 +1,8 @@
-﻿import { Injectable } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { Prisma } from "@prisma/client"
 import { AuditAction } from "./audit.constants"
+import { sanitizeIp } from "../common/utils"
 
 @Injectable()
 export class AuditService {
@@ -12,11 +13,22 @@ export class AuditService {
     userName: string,
     action: string,
     resource: string,
-    ip: string,
-    userAgent: string,
+    ip?: string,
+    userAgent?: string,
     metadata?: any,
   ) {
-    return this.prisma.auditLog.create({ data: { userId, userName, action, resource, ip, userAgent, metadata } })
+    const cleanIp = sanitizeIp(ip || metadata?.ip)
+    return this.prisma.auditLog.create({
+      data: {
+        userId,
+        userName,
+        action,
+        resource,
+        ip: cleanIp,
+        userAgent: userAgent || metadata?.userAgent || "Browser",
+        metadata,
+      },
+    })
   }
 
   async logWithUser(
@@ -27,19 +39,21 @@ export class AuditService {
     userAgent?: string,
     metadata?: any,
   ) {
+    const clientIp = sanitizeIp(ip || metadata?.ip)
     return this.log(
       user?.id || "system",
       user?.name || "system",
       action,
       resource,
-      ip || "0.0.0.0",
+      clientIp,
       userAgent || "",
       metadata,
     )
   }
 
-  async logSimple(userId: string, userName: string, action: AuditAction, resource: string, metadata?: any) {
-    return this.log(userId, userName, action, resource, "0.0.0.0", "", metadata)
+  async logSimple(userId: string, userName: string, action: AuditAction | string, resource: string, metadata?: any, ip?: string, userAgent?: string) {
+    const clientIp = sanitizeIp(ip || metadata?.ip)
+    return this.log(userId, userName, action, resource, clientIp, userAgent || "", metadata)
   }
 
   async getLogs(page = 1, limit = 50, search?: string, action?: string, from?: string, to?: string) {

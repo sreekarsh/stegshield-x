@@ -14,6 +14,7 @@ import { join } from "path";
 import sharp from "sharp";
 import * as opentype from "opentype.js";
 import { PrismaService } from "../prisma/prisma.service";
+import { sanitizeIp } from "../common/utils";
 import { AuditService } from "../audit/audit.service";
 import { AuditActions } from "../audit/audit.constants";
 import { ConfigService } from "@nestjs/config";
@@ -330,7 +331,7 @@ export class WatermarkService {
     }
   }
 
-  private async logAudit(userId: string, action: string, resource: string, resourceId?: string, metadata?: any) {
+  private async logAudit(userId: string, action: string, resource: string, resourceId?: string, metadata?: any, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null)
     const actionKey = (AuditActions as Record<string, string>)[action] || action
     await this.audit.log(
@@ -338,7 +339,7 @@ export class WatermarkService {
       user?.name || "system",
       actionKey,
       resource,
-      "0.0.0.0",
+      sanitizeIp(ip),
       "watermark-service",
       { resourceId, ...metadata },
     );
@@ -595,6 +596,21 @@ export class WatermarkService {
     await this.prisma.watermark.delete({ where: { id } });
     await this.logAudit(userId, "WATERMARK_DELETE", "watermark", id);
     return { success: true };
+  }
+
+  async deleteAll(userId: string): Promise<{ success: boolean; count: number }> {
+    const items = await this.prisma.watermark.findMany({ where: { userId } });
+    for (const watermark of items) {
+      if (watermark.originalPath && existsSync(watermark.originalPath)) {
+        await this.safeUnlink(watermark.originalPath);
+      }
+      if (watermark.watermarkedPath && existsSync(watermark.watermarkedPath)) {
+        await this.safeUnlink(watermark.watermarkedPath);
+      }
+    }
+    const result = await this.prisma.watermark.deleteMany({ where: { userId } });
+    await this.logAudit(userId, "WATERMARK_CLEAR_ALL", "watermark", `${result.count} items cleared`);
+    return { success: true, count: result.count };
   }
 
   async generateVisiblePreview(

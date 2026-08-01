@@ -1,9 +1,9 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import {
   Ghost, Shield, Eye, EyeOff, Trash2, CheckCircle, XCircle,
-  RefreshCw, AlertCircle, Info, AlertTriangle, Loader2,
+  RefreshCw, AlertCircle, Info, AlertTriangle, Loader2, BookOpen, X, Key,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,7 @@ interface VerifyResponse {
 }
 
 export default function DecoyVaultPage() {
+  const [showGuideModal, setShowGuideModal] = useState(false)
   const [fakePw, setFakePw] = useState("")
   const [confirmFakePw, setConfirmFakePw] = useState("")
   const [realVaultId, setRealVaultId] = useState("")
@@ -149,10 +150,15 @@ export default function DecoyVaultPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Decoy Vault"
-        description="Plausible deniability with fake passwords and hidden real vaults"
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Decoy Vault</h1>
+          <p className="text-sm text-muted-foreground">Plausible deniability with fake passwords and hidden real vaults</p>
+        </div>
+        <Button variant="cyber" size="sm" onClick={() => setShowGuideModal(true)}>
+          <BookOpen className="mr-2 h-4 w-4" /> Decoy Vault Guide
+        </Button>
+      </div>
 
       <Card className="glass-card border-cyber-500/20 bg-cyber-500/5">
         <CardContent className="p-4 flex items-start gap-3">
@@ -387,6 +393,72 @@ export default function DecoyVaultPage() {
         variant="destructive"
         loading={removing}
       />
+
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-xl border border-cyber-500/30 bg-card p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-cyber-500/10 text-cyber-400">
+                  <Ghost className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Decoy Vault Integration Guide</h2>
+                  <p className="text-xs text-muted-foreground">Plausible deniability & anti-coercion security architecture</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowGuideModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border">
+                <p className="font-semibold text-xs text-cyber-400 mb-1">👻 What is a Decoy Vault?</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  A Decoy Vault provides <strong>plausible deniability under coercion</strong>. If an adversary forces you to reveal your password, entering your secondary <strong>Decoy Password</strong> safely unlocks a realistic fake vault containing dummy or non-sensitive files, without exposing your genuine master vault.
+                </p>
+              </div>
+
+              <div className="space-y-3 pl-2">
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">1</span>
+                    Configuring the Decoy Layer
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    Enter a secondary <strong>Decoy Password</strong> (minimum 6 characters), link your <strong>Real Vault ID</strong>, and optionally specify a <strong>Fake Vault ID</strong>. Click <strong>Save Decoy Protection</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">2</span>
+                    Duress & Emergency Situations
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    If compelled to unlock your vault under duress, provide the <strong>Decoy Password</strong>. StegShield X routes the request to the fake container without triggering security alerts or exposing real evidence.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">3</span>
+                    Verification & Testing
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    Use the <strong>Verify Password</strong> card to test your configuration. Entering the decoy password returns confirmation of decoy routing, while entering the real password verifies real vault access.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button variant="cyber" size="sm" onClick={() => setShowGuideModal(false)}>Got It</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

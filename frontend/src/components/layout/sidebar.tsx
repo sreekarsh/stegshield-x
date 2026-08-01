@@ -20,7 +20,6 @@ import {
   ScanFace,
   Share2,
   Droplets,
-  FileX,
   Puzzle,
   AlertTriangle,
   Ghost,
@@ -39,7 +38,6 @@ import {
   HelpCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 const navigation = [
   { section: "Core", items: [
@@ -97,16 +95,19 @@ export const Sidebar = memo(function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen border-r border-border/50 bg-background transition-all duration-300",
+        "fixed left-0 top-0 z-40 h-screen flex flex-col border-r border-border/50 bg-background/95 backdrop-blur-xl transition-[width] duration-300 ease-in-out shadow-2xl select-none overflow-hidden",
         sidebarOpen ? "w-64" : "w-16"
       )}
     >
-      <div className="flex h-16 items-center justify-between px-4 border-b border-border/50">
+      {/* Header */}
+      <div className="flex h-16 items-center justify-between px-4 border-b border-border/50 shrink-0 bg-background/80">
         {sidebarOpen && (
-          <Link href="/home" className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-cyber-500 shrink-0" />
+          <Link href="/home" className="flex items-center gap-2 group">
+            <Shield className="h-7 w-7 text-cyber-500 shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200" />
             <div className="flex flex-col">
-              <span className="font-bold text-sm leading-none">StegShield X</span>
+              <span className="font-bold text-sm leading-none bg-gradient-to-r from-white via-violet-200 to-cyan-400 bg-clip-text text-transparent">
+                StegShield X
+              </span>
               <span className="text-[10px] text-muted-foreground font-medium pt-1">
                 Created by <span className="text-cyber-400 font-semibold">Sree Karsh</span>
               </span>
@@ -115,14 +116,15 @@ export const Sidebar = memo(function Sidebar() {
         )}
         {!sidebarOpen && (
           <Link href="/home" className="mx-auto">
-            <Shield className="h-7 w-7 text-cyber-500" />
+            <Shield className="h-7 w-7 text-cyber-500 hover:scale-110 hover:rotate-6 transition-transform duration-200" />
           </Link>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className={cn("h-8 w-8", !sidebarOpen && "mx-auto mt-2")}
+          className={cn("h-8 w-8 hover:bg-violet-500/20 hover:text-cyan-300 transition-colors", !sidebarOpen && "mx-auto mt-2")}
+          title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {sidebarOpen ? (
             <ChevronLeft className="h-4 w-4" />
@@ -132,33 +134,51 @@ export const Sidebar = memo(function Sidebar() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 h-[calc(100vh-4rem)]">
-        <nav className="p-2 space-y-4 pb-28">
+      {/* Main Nav Scroll Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pr-1 scrollbar-thin">
+        <nav className="p-2 space-y-3 pb-6">
           {navigation.map((section) => (
-            <div key={section.section}>
+            <div key={section.section} className="space-y-1">
               {sidebarOpen && (
-                <p className="px-3 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <p className="px-3 py-1 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">
                   {section.section}
                 </p>
               )}
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const isActive = pathname === item.href
+                  const Icon = item.icon
+
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-200",
+                        "group relative flex items-center gap-3 rounded-xl px-3 h-10 text-[13.5px] font-medium transition-all duration-150 ease-out select-none overflow-hidden",
                         isActive
-                          ? "bg-gradient-to-r from-violet-600/25 to-indigo-600/15 text-cyan-300 font-semibold border border-violet-500/40 shadow-[0_0_15px_rgba(124,58,237,0.3)]"
-                          : "text-muted-foreground hover:text-white hover:bg-violet-500/10 hover:border hover:border-violet-500/20",
-                        !sidebarOpen && "justify-center px-2"
+                          ? "bg-gradient-to-r from-violet-600/35 via-indigo-600/25 to-cyan-600/20 text-cyan-200 font-bold border border-cyan-400/50 shadow-[0_0_15px_rgba(124,58,237,0.35)] translate-x-1"
+                          : "text-muted-foreground hover:text-white hover:bg-violet-500/15 hover:translate-x-1 hover:border hover:border-violet-500/30",
+                        !sidebarOpen && "justify-center px-2 hover:translate-x-0"
                       )}
                       title={sidebarOpen ? undefined : item.name}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {sidebarOpen && <span>{item.name}</span>}
+                      {/* Active indicator bar */}
+                      {isActive && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-4 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
+                      )}
+
+                      <Icon
+                        className={cn(
+                          "h-[18px] w-[18px] shrink-0 transition-transform duration-150 group-hover:scale-110",
+                          isActive ? "text-cyan-300" : "text-muted-foreground group-hover:text-violet-300"
+                        )}
+                      />
+
+                      {sidebarOpen && (
+                        <span className={cn("truncate transition-colors", isActive ? "text-cyan-200 font-bold text-[14px]" : "")}>
+                          {item.name}
+                        </span>
+                      )}
                     </Link>
                   )
                 })}
@@ -166,25 +186,26 @@ export const Sidebar = memo(function Sidebar() {
             </div>
           ))}
         </nav>
+      </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-2 border-t border-border/50 bg-background space-y-1">
-          <button
-            onClick={handleSignOut}
-            className={cn(
-              "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
-              !sidebarOpen && "justify-center px-2"
-            )}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {sidebarOpen && <span>Sign Out</span>}
-          </button>
-          {sidebarOpen && (
-            <p className="text-[10px] text-center text-muted-foreground pt-1 border-t border-border/20">
-              Created by <span className="font-semibold text-violet-400">Sree Karsh</span>
-            </p>
+      {/* Footer */}
+      <div className="shrink-0 p-2 border-t border-border/50 bg-background/95 backdrop-blur-md space-y-1">
+        <button
+          onClick={handleSignOut}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150 hover:scale-[1.02]",
+            !sidebarOpen && "justify-center px-2"
           )}
-        </div>
-      </ScrollArea>
+        >
+          <LogOut className="h-[18px] w-[18px] shrink-0" />
+          {sidebarOpen && <span>Sign Out</span>}
+        </button>
+        {sidebarOpen && (
+          <p className="text-[11px] text-center text-muted-foreground pt-1 border-t border-border/20">
+            Created by <span className="font-semibold text-violet-400">Sree Karsh</span>
+          </p>
+        )}
+      </div>
     </aside>
   )
 })

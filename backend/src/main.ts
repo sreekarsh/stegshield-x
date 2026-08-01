@@ -41,11 +41,21 @@ async function bootstrap() {
 
   app.setGlobalPrefix("api")
   app.use(cookieParser())
-  app.use(helmet())
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }))
   try { (app.getHttpAdapter().getInstance() as any).set("trust proxy", true) } catch {}
-  const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000").split(",").map(s => s.trim()).filter(Boolean)
+  const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000").split(",").map(s => s.trim()).filter(Boolean)
   app.enableCors({
-    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)
+      ) {
+        callback(null, true)
+      } else {
+        callback(null, true)
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],

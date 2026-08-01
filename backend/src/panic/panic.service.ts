@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { JwtService } from "@nestjs/jwt"
 import { MailService } from "../mail/mail.service"
+import { sanitizeIp } from "../common/utils"
 import * as argon2 from "argon2"
 
 @Injectable()
@@ -35,7 +36,7 @@ export class PanicService {
           userName: user?.name || "unknown",
           action,
           resource: "panic",
-          ip: ip || "0.0.0.0",
+          ip: sanitizeIp(ip),
           userAgent: "panic-mode",
           metadata: metadata || undefined,
         },

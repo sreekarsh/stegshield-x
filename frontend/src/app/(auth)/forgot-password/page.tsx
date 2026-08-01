@@ -13,19 +13,15 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [resetToken, setResetToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) { toast.error("Enter your email address"); return }
     setLoading(true)
     try {
-      const res = await api.post<{ message: string; resetUrl?: string; resetToken?: string }>("/auth/forgot-password", { email })
+      await api.post<{ message: string }>("/auth/forgot-password", { email })
       setSent(true)
-      if (res.resetToken) {
-        setResetToken(res.resetToken)
-      }
-      toast.success("Reset link generated successfully")
+      toast.success("Password reset request submitted")
     } catch (err: any) {
       toast.error(err?.data?.message || err?.message || "Request failed — try again later")
     } finally {
@@ -50,15 +46,15 @@ export default function ForgotPasswordPage() {
             {sent ? (
               <div className="text-center py-4 space-y-4">
                 <Mail className="h-12 w-12 text-cyber-400 mx-auto mb-2" />
-                <h2 className="text-lg font-semibold">Check Your Inbox</h2>
+                <h2 className="text-lg font-semibold">Check Your Email</h2>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  If an account exists for <strong className="text-foreground">{email}</strong>, a password reset link has been dispatched.
+                  If an account exists for <strong className="text-foreground">{email}</strong>, a password reset security token has been sent to your email inbox.
                 </p>
 
                 <div className="pt-2 space-y-3">
-                  <Link href={`/reset-password?token=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`} className="block">
+                  <Link href={`/reset-password?email=${encodeURIComponent(email)}`} className="block">
                     <Button variant="cyber" className="w-full h-11 text-sm font-semibold">
-                      Proceed to Reset Password
+                      Enter Reset Token & Set New Password
                     </Button>
                   </Link>
 

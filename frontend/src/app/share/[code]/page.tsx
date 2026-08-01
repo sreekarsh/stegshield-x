@@ -12,12 +12,15 @@ import toast from "react-hot-toast"
 const getApiBase = () => {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
   if (typeof window !== "undefined") {
-    const host = window.location.hostname
-    if (host !== "localhost" && host !== "127.0.0.1") {
-      return `${window.location.origin}/api`
+    const origin = window.location.origin
+    const hostname = window.location.hostname
+    const port = window.location.port
+
+    if (port === "3000") {
+      const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || "4000"
+      return `http://${hostname}:${backendPort}/api`
     }
-    const port = process.env.NEXT_PUBLIC_BACKEND_PORT || "4000"
-    return `http://localhost:${port}/api`
+    return `${origin}/api`
   }
   return "http://localhost:4000/api"
 }

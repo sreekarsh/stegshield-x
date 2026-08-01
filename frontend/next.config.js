@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: [
+    'localhost:3000',
+    '127.0.0.1:3000',
+    '192.168.56.1',
+    '192.168.56.1:3000',
+  ],
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
@@ -16,6 +22,25 @@ const nextConfig = {
   },
   turbopack: {
     root: __dirname,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/dashboard',
+        destination: '/home',
+        permanent: true,
+      },
+    ]
+  },
+  async rewrites() {
+    const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || process.env.BACKEND_PORT || '4000'
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || `http://127.0.0.1:${backendPort}/api`
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl.replace(/\/+$/, '')}/:path*`,
+      },
+    ]
   },
 }
 

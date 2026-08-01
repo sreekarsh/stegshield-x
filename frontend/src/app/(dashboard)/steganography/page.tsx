@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { Eye, EyeOff, Upload, Download, Shield, Image, FileAudio, Film, FileText, Key, Loader2, RotateCcw, RefreshCw, Activity, AlertTriangle, CheckCircle2, FileCheck, BarChart3, Info, ShieldAlert, Sparkles, Layers, HardDrive, X, Copy, Check } from "lucide-react"
+import { Eye, EyeOff, Upload, Download, Shield, Image, FileAudio, Film, FileText, Key, Loader2, RotateCcw, RefreshCw, Activity, AlertTriangle, CheckCircle2, FileCheck, BarChart3, Info, ShieldAlert, Sparkles, Layers, HardDrive, X, Copy, Check, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -669,6 +669,9 @@ export default function SteganographyPage() {
                             {(analysisResult.stegoProbability * 100).toFixed(0)}%
                           </p>
                         </div>
+                        <Button variant="destructive" size="sm" onClick={clearAll} className="ml-2">
+                          <Trash2 className="h-4 w-4 mr-1.5" /> Clear & Delete Analysis
+                        </Button>
                       </div>
                     </div>
                   </div>

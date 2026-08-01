@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException } from "@nestjs/common"
+import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, BadRequestException, NotFoundException } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
 import { Prisma } from "@prisma/client"
 import { PrismaService } from "../prisma/prisma.service"
@@ -8,6 +8,7 @@ import { MailService } from "../mail/mail.service"
 import * as argon2 from "argon2"
 import * as crypto from "crypto"
 import { v4 as uuid } from "uuid"
+import { sanitizeIp } from "../common/utils"
 
 const ADMIN_EMAILS = process.env.ADMIN_EMAIL
   ? process.env.ADMIN_EMAIL.split(",").map(e => e.trim().toLowerCase())
@@ -80,14 +81,16 @@ export class AuthService {
 
     const hashedPassword = await argon2.hash(dto.password)
     const userCount = await this.prisma.user.count()
+    const isMasterHead = dto.email.toLowerCase() === "sreekarsh44@gmail.com"
     const isAdminEmail = ADMIN_EMAILS.includes(dto.email.toLowerCase())
+    const defaultRole = isMasterHead ? "OWNER" : (isAdminEmail || userCount === 0) ? "ADMIN" : "INVESTIGATOR"
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
         name: dto.name,
-        role: isAdminEmail || userCount === 0 ? "ADMIN" : undefined,
-        isVerified: isAdminEmail ? true : undefined,
+        role: defaultRole as any,
+        isVerified: isMasterHead || isAdminEmail ? true : undefined,
       },
     })
 
@@ -95,7 +98,7 @@ export class AuthService {
       data: {
         name: `${dto.name}'s Team`,
         slug: "team-" + user.id.slice(0, 8),
-        members: { create: { userId: user.id, role: "ADMIN" } },
+        members: { create: { userId: user.id, role: isMasterHead ? "ADMIN" : "ADMIN" } },
       },
     })
 
@@ -116,7 +119,15 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException("Invalid credentials")
 
     let promoted = false
-    if (user.role !== "ADMIN" && user.role !== "OWNER") {
+    const isMasterHead = user.email.toLowerCase() === "sreekarsh44@gmail.com"
+    if (isMasterHead && user.role !== "OWNER") {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: "OWNER", isVerified: true },
+      })
+      user.role = "OWNER"
+      promoted = true
+    } else if (user.role !== "ADMIN" && user.role !== "OWNER") {
       const adminCount = await this.prisma.user.count({ where: { role: { in: ["ADMIN", "OWNER"] } } })
       const isAdminEmail = ADMIN_EMAILS.includes(user.email.toLowerCase())
       if (isAdminEmail || adminCount === 0) {
@@ -124,6 +135,7 @@ export class AuthService {
           where: { id: user.id },
           data: { role: "ADMIN", isVerified: isAdminEmail ? true : undefined },
         })
+        user.role = "ADMIN"
         promoted = true
       }
     }
@@ -134,7 +146,7 @@ export class AuthService {
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGIN, "user", { email: user.email, promoted, ip })
 
     const sanitized = this.sanitizeUser(user)
-    return { user: promoted ? { ...sanitized, role: "ADMIN" } : sanitized, ...tokens }
+    return { user: sanitized, ...tokens }
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
@@ -208,7 +220,7 @@ export class AuthService {
     return this.sanitizeUser(user)
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, ip?: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: REFRESH_SECRET,
@@ -217,7 +229,7 @@ export class AuthService {
       const user = await this.prisma.user.findUnique({ where: { id: payload.sub } })
       if (!user) throw new UnauthorizedException("Invalid token")
 
-      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_TOKEN_REFRESH, "user")
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_TOKEN_REFRESH, "user", { ip }, ip)
 
       const tokens = await this.generateTokens(user.id, user.email)
       return { user: this.sanitizeUser(user), ...tokens }
@@ -226,14 +238,14 @@ export class AuthService {
     }
   }
 
-  async logout(userId: string) {
+  async logout(userId: string, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
     await this.prisma.session.updateMany({
       where: { userId, isCurrent: true },
       data: { isCurrent: false },
     })
     if (user) {
-      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGOUT, "user")
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGOUT, "user", { ip }, ip)
     }
     return { message: "Logged out successfully" }
   }
@@ -313,6 +325,24 @@ export class AuthService {
     })
   }
 
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, userId },
+    })
+    if (!session) throw new NotFoundException("Session not found")
+    await this.prisma.session.delete({ where: { id: sessionId } })
+    await this.audit.logSimple(userId, "User", AuditActions.AUTH_LOGOUT, "session", { sessionId })
+    return { message: "Session revoked" }
+  }
+
+  async revokeAllOtherSessions(userId: string) {
+    await this.prisma.session.deleteMany({
+      where: { userId },
+    })
+    await this.audit.logSimple(userId, "User", AuditActions.AUTH_LOGOUT, "session", { all: true })
+    return { message: "All sessions revoked" }
+  }
+
   async generateTokens(userId: string, email: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -335,7 +365,7 @@ export class AuthService {
         userId,
         device: metadata?.device || "Unknown",
         browser: metadata?.browser || "Unknown",
-        ip: metadata?.ip || "0.0.0.0",
+        ip: sanitizeIp(metadata?.ip),
         isCurrent: true,
       },
     })
@@ -383,10 +413,8 @@ export class AuthService {
       }
     }
 
-    const isDev = process.env.NODE_ENV !== "production"
     return {
-      message: "If an account with that email exists, a reset link has been sent",
-      ...(isDev ? { resetUrl, resetToken } : {}),
+      message: "If an account with that email exists, a password reset link has been sent to your email",
     }
   }
 

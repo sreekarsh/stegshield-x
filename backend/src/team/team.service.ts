@@ -44,7 +44,7 @@ export class TeamService {
           action,
           resource,
           resourceId,
-          ip: ip || "0.0.0.0",
+          ip: sanitizeIp(ip),
           userAgent: "team-service",
           metadata: metadata || undefined,
         },

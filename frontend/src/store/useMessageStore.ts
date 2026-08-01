@@ -68,18 +68,20 @@ interface SearchableUser {
   email: string
 }
 
-const DEMO_USERS: SearchableUser[] = [
-  { id: "agent-1", name: "Alex Mercer", email: "alex.mercer@shield.gov" },
-  { id: "agent-2", name: "Sam Rivera", email: "sam.rivera@shield.gov" },
-  { id: "agent-3", name: "Jordan Chase", email: "jordan.chase@shield.gov" },
-  { id: "agent-4", name: "Casey Morgan", email: "casey.morgan@shield.gov" },
-  { id: "agent-5", name: "Riley Quinn", email: "riley.quinn@shield.gov" },
-  { id: "agent-6", name: "Taylor Reed", email: "taylor.reed@shield.gov" },
-  { id: "agent-7", name: "Morgan Blair", email: "morgan.blair@shield.gov" },
-  { id: "agent-8", name: "Drew Harper", email: "drew.harper@shield.gov" },
-  { id: "agent-9", name: "Sydney Cole", email: "sydney.cole@shield.gov" },
-  { id: "agent-10", name: "Jamie Wells", email: "jamie.wells@shield.gov" },
-]
+export const DEMO_USER_DETAILS: Record<string, any> = {
+  "agent-1": { id: "agent-1", name: "Alex Mercer", email: "alex.mercer@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-01-15T08:00:00Z", department: "Cyber Forensics & Steganography", fingerprint: "SHA256:7F8A:3D9E:4B11:C20F:9A32" },
+  "agent-2": { id: "agent-2", name: "Sam Rivera", email: "sam.rivera@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-02-10T09:30:00Z", department: "Threat Intelligence & Tamper Analysis", fingerprint: "SHA256:8E1C:4A2D:9C33:B10E:7F44" },
+  "agent-3": { id: "agent-3", name: "Jordan Chase", email: "jordan.chase@shield.gov", role: "admin", isVerified: true, isMFAEnabled: true, createdAt: "2024-03-01T11:00:00Z", department: "Security Operations Center", fingerprint: "SHA256:9A4F:5B1E:1D22:E80A:3C55" },
+  "agent-4": { id: "agent-4", name: "Casey Morgan", email: "casey.morgan@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-03-12T14:20:00Z", department: "Digital Evidence Management", fingerprint: "SHA256:1C2B:3D4E:5F6A:7B8C:9D0E" },
+  "agent-5": { id: "agent-5", name: "Riley Quinn", email: "riley.quinn@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-05T16:45:00Z", department: "Cryptographic Analysis", fingerprint: "SHA256:2D3E:4F5A:6B7C:8D9E:0F1A" },
+  "agent-6": { id: "agent-6", name: "Taylor Reed", email: "taylor.reed@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-18T10:15:00Z", department: "Incident Response", fingerprint: "SHA256:3E4F:5A6B:7C8D:9E0F:1A2B" },
+  "agent-7": { id: "agent-7", name: "Morgan Blair", email: "morgan.blair@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-05-02T13:00:00Z", department: "Compliance & Audit Log", fingerprint: "SHA256:4F5A:6B7C:8D9E:0F1A:2B3C" },
+  "agent-8": { id: "agent-8", name: "Drew Harper", email: "drew.harper@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-05-20T08:30:00Z", department: "Malware & Deepfake Analysis", fingerprint: "SHA256:5A6B:7C8D:9E0F:1A2B:3C4D" },
+  "agent-9": { id: "agent-9", name: "Sydney Cole", email: "sydney.cole@shield.gov", role: "owner", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-01T09:00:00Z", department: "Chief Information Security Office", fingerprint: "SHA256:6B7C:8D9E:0F1A:2B3C:4D5E" },
+  "agent-10": { id: "agent-10", name: "Jamie Wells", email: "jamie.wells@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-15T15:10:00Z", department: "Network Security & Proxy", fingerprint: "SHA256:7C8D:9E0F:1A2B:3C4D:5E6F" },
+}
+
+const DEMO_USERS = Object.values(DEMO_USER_DETAILS)
 
 const CONTACT_NAMES: Record<string, string> = {}
 for (const u of DEMO_USERS) {

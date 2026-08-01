@@ -1,4 +1,64 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from "@nestjs/common"
+import { networkInterfaces } from "os"
+
+function getLanIp(): string {
+  try {
+    const nets = networkInterfaces()
+
+    // Collect all candidate IPs with metadata
+    interface Candidate { ip: string; name: string; score: number }
+    const candidates: Candidate[] = []
+
+    for (const name of Object.keys(nets)) {
+      // Skip obvious virtual/VPN adapters by name
+      const nameLower = name.toLowerCase()
+      const isVirtual = (
+        nameLower.includes("virtualbox") ||
+        nameLower.includes("vmware") ||
+        nameLower.includes("hyper-v") ||
+        nameLower.includes("vethernet") ||
+        nameLower.includes("loopback") ||
+        nameLower.includes("tailscale") ||
+        nameLower.includes("zerotier") ||
+        // "Ethernet 2", "Ethernet 3" etc are often VirtualBox host-only on Windows
+        // but "Ethernet" alone or "Wi-Fi" / "WLAN" are real adapters
+        /^ethernet\s+\d+$/i.test(name)
+      )
+
+      for (const net of nets[name] || []) {
+        if (
+          (net.family === "IPv4" || (net as any).family === 4 || String(net.family).includes("4")) &&
+          !net.internal
+        ) {
+          const ip = net.address
+
+          // Skip Tailscale CGNAT range (100.x.x.x)
+          if (ip.startsWith("100.")) continue
+
+          let score = 0
+          if (!isVirtual) score += 100
+          // Prefer Wi-Fi / real Ethernet
+          if (/wi-?fi|wlan|wireless/i.test(name)) score += 50
+          if (/^ethernet$/i.test(name)) score += 40
+          // Prefer private ranges that suggest a real home/office network
+          if (ip.startsWith("192.168.")) score += 10
+          if (ip.startsWith("10.")) score += 20   // often enterprise / phone hotspot
+          if (ip.startsWith("172.")) score += 5
+
+          candidates.push({ ip, name, score })
+        }
+      }
+    }
+
+    // Sort descending by score and take best
+    candidates.sort((a, b) => b.score - a.score)
+    if (candidates.length > 0) return candidates[0].ip
+
+    return "localhost"
+  } catch {
+    return "localhost"
+  }
+}
 import { PrismaService } from "../prisma/prisma.service"
 import { AuditService } from "../audit/audit.service"
 import { AuditActions } from "../audit/audit.constants"
@@ -9,6 +69,7 @@ import { existsSync, mkdirSync, createReadStream } from "fs"
 import { writeFile, unlink } from "fs/promises"
 import { Response } from "express"
 import { CreateShareDto } from "./dto/create-share.dto"
+import { sanitizeIp } from "../common/utils"
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -45,7 +106,6 @@ export class SharingService {
       mkdirSync(this.shareDir, { recursive: true })
     }
     
-    // Production defaults from environment
     this.defaultIpRestricted = process.env.SHARING_DEFAULT_IP_RESTRICTED === "true"
     this.defaultMaxDownloads = process.env.SHARING_DEFAULT_MAX_DOWNLOADS ? parseInt(process.env.SHARING_DEFAULT_MAX_DOWNLOADS) : null
     this.defaultExpiry = process.env.SHARING_DEFAULT_EXPIRY || null
@@ -60,7 +120,7 @@ export class SharingService {
         }
         return
       } catch (err: any) {
-        if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'ENOENT') {
+        if (err.code === "EPERM" || err.code === "EBUSY" || err.code === "ENOENT") {
           if (i < retries - 1) await new Promise(r => setTimeout(r, delay))
         } else {
           throw err
@@ -70,30 +130,47 @@ export class SharingService {
   }
 
   private makeUrl(code: string, requestHost?: string): string {
+    // 1. If explicitly configured APP_URL in production (e.g. Vercel)
     const configuredUrl = process.env.APP_URL || process.env.FRONTEND_URL
-    if (configuredUrl && !configuredUrl.includes("ngrok")) {
+    if (configuredUrl && !configuredUrl.includes("ngrok") && !configuredUrl.includes("localhost") && !configuredUrl.includes("127.0.0.1")) {
       return `${configuredUrl.replace(/\/+$/, "")}/share/${code}`
     }
-    if (requestHost && !requestHost.includes("ngrok")) {
-      const proto = requestHost.includes("localhost") || requestHost.match(/^\d+\.\d+\.\d+\.\d+/) ? "http" : "https"
+
+    // 2. If request comes from an external host/origin (e.g. Vercel deployment)
+    if (requestHost && !requestHost.includes("ngrok") && !requestHost.includes("localhost") && !requestHost.includes("127.0.0.1")) {
+      let cleanHost = requestHost.trim().replace(/\/+$/, "")
+      if (cleanHost.startsWith("http://") || cleanHost.startsWith("https://")) {
+        return `${cleanHost}/share/${code}`
+      }
       const frontendPort = process.env.FRONTEND_PORT || "3000"
-      const hostPart = requestHost.replace(/:\d+$/, "")
-      const isLocal = hostPart.includes("localhost") || hostPart.match(/^\d+\.\d+\.\d+\.\d+/)
-      return `${proto}://${hostPart}${isLocal ? `:${frontendPort}` : ""}/share/${code}`
+      const hostPart = cleanHost.replace(/:\d+$/, "")
+      return `https://${hostPart}${hostPart.includes(":") ? "" : `:${frontendPort}`}/share/${code}`
     }
-    return `http://localhost:3000/share/${code}`
+
+    // 3. Local Development: Automatically use actual computer LAN IP so mobile QR scanners (Google Lens) work over Wi-Fi!
+    const lanIp = getLanIp()
+    const frontendPort = process.env.FRONTEND_PORT || "3000"
+    return `http://${lanIp}:${frontendPort}/share/${code}`
   }
 
   private async validateLink(code: string) {
-    const link = await this.prisma.sharedLink.findUnique({ where: { url: code } })
-    if (!link) throw new NotFoundException("Link not found")
+    const link = await this.prisma.sharedLink.findFirst({
+      where: {
+        OR: [
+          { url: code },
+          { id: code },
+          { fileId: code },
+        ],
+      },
+    })
+    if (!link) throw new NotFoundException("Link not found or file removed")
 
     if (link.expiresAt && new Date() > link.expiresAt) {
       throw new ForbiddenException("This link has expired")
     }
 
     if (link.maxDownloads !== null && link.downloads >= link.maxDownloads) {
-      throw new ForbiddenException("Maximum download limit reached")
+      throw new ForbiddenException("Maximum download limit reached for this link")
     }
 
     return link
@@ -103,63 +180,33 @@ export class SharingService {
     if (!link.isIPRestricted || !requestIp) return
 
     if (link.allowedIPs.length === 0) {
-      throw new ForbiddenException("Access restricted by IP")
+      throw new ForbiddenException("Access restricted by IP configuration")
     }
 
     const allowed = link.allowedIPs.some(cidr => this.ipMatchesCidr(requestIp, cidr))
     if (!allowed) {
-      throw new ForbiddenException("Access restricted by IP")
+      throw new ForbiddenException("Access restricted by IP configuration")
     }
   }
 
   private ipMatchesCidr(ip: string, cidr: string): boolean {
     try {
       const ipaddr = require("ipaddr.js")
-      
-      // If CIDR notation, use proper CIDR matching
       if (cidr.includes("/")) {
         const addr = ipaddr.parse(ip)
         const range = ipaddr.parseCIDR(cidr)
         return addr.kind() === range[0].kind() && addr.match(range)
       }
-      
-      // For exact IP, require exact match only
       return ip === cidr
     } catch {
-      // On parsing error, require exact match
       return ip === cidr
     }
   }
 
   private validateFileType(mimeType: string | undefined, fileName: string): void {
     if (!mimeType) return
-    
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      throw new BadRequestException(`File type "${mimeType}" is not allowed for sharing`)
-    }
-    
-    // Validate that file extension matches MIME type category
-    const ext = extname(fileName).toLowerCase()
-    const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".svg"]
-    const docExts = [".pdf", ".txt", ".csv", ".html", ".md", ".css", ".js", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"]
-    const archiveExts = [".zip", ".rar", ".7z", ".tar", ".gz"]
-    const audioExts = [".mp3", ".wav", ".ogg", ".webm", ".m4a", ".flac", ".aac"]
-    const videoExts = [".mp4", ".webm", ".avi", ".mov", ".mkv", ".mpeg", ".ogg"]
-    
-    const isImage = mimeType.startsWith("image/")
-    const isDoc = mimeType.startsWith("application/") && (mimeType.includes("pdf") || mimeType.includes("word") || mimeType.includes("excel") || mimeType.includes("powerpoint") || mimeType.includes("text"))
-    const isArchive = mimeType.includes("zip") || mimeType.includes("rar") || mimeType.includes("7z") || mimeType.includes("tar") || mimeType.includes("gzip")
-    const isAudio = mimeType.startsWith("audio/")
-    const isVideo = mimeType.startsWith("video/")
-    
-    if (isImage && !imageExts.includes(ext)) {
-      throw new BadRequestException(`File extension ${ext} does not match image MIME type`)
-    }
-    if (isAudio && !audioExts.includes(ext)) {
-      throw new BadRequestException(`File extension ${ext} does not match audio MIME type`)
-    }
-    if (isVideo && !videoExts.includes(ext)) {
-      throw new BadRequestException(`File extension ${ext} does not match video MIME type`)
+      throw new BadRequestException(`File type "${mimeType}" is not permitted for sharing`)
     }
   }
 
@@ -181,11 +228,9 @@ export class SharingService {
       if (password.length < 8) {
         throw new BadRequestException("Password must be at least 8 characters")
       }
-      // Use argon2 for consistent security across the application
       passwordHash = await argon2.hash(password)
     }
     
-    // Apply production defaults from environment if not explicitly set
     const ipRestricted = dto.isIPRestricted !== undefined ? dto.isIPRestricted : this.defaultIpRestricted
     const maxDownloads = dto.maxDownloads !== undefined ? dto.maxDownloads : this.defaultMaxDownloads
 
@@ -251,20 +296,52 @@ export class SharingService {
     }))
   }
 
-  async deleteLink(id: string, userId: string) {
-    const link = await this.prisma.sharedLink.findUnique({ where: { id } })
+  getLanIpInfo() {
+    const lanIp = getLanIp()
+    const frontendPort = process.env.FRONTEND_PORT || "3000"
+    return { lanIp, frontendPort, shareBase: `http://${lanIp}:${frontendPort}/share` }
+  }
+
+  // Resilient deletion matching by ID, URL, or FileID
+  async deleteLink(idOrCode: string, userId: string) {
+    const link = await this.prisma.sharedLink.findFirst({
+      where: {
+        OR: [
+          { id: idOrCode },
+          { url: idOrCode },
+          { fileId: idOrCode },
+        ],
+      },
+    })
     if (!link) throw new NotFoundException("Link not found")
     if (link.userId !== userId) throw new ForbiddenException("Access denied")
 
     if (link.filePath && existsSync(link.filePath)) {
       await this.safeUnlink(link.filePath)
     }
-    await this.prisma.sharedLink.delete({ where: { id } })
+    await this.prisma.sharedLink.delete({ where: { id: link.id } })
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
     if (user) {
-      await this.audit.logSimple(user.id, user.name, AuditActions.SHARE_LINK_DELETE, "shared_link", { linkId: id, fileName: link.fileName })
+      await this.audit.logSimple(user.id, user.name, AuditActions.SHARE_LINK_DELETE, "shared_link", { linkId: link.id, fileName: link.fileName })
     }
+    return { success: true, id: link.id }
+  }
+
+  async deleteAllLinks(userId: string) {
+    const links = await this.prisma.sharedLink.findMany({ where: { userId } })
+    for (const link of links) {
+      if (link.filePath && existsSync(link.filePath)) {
+        await this.safeUnlink(link.filePath)
+      }
+    }
+    const result = await this.prisma.sharedLink.deleteMany({ where: { userId } })
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
+    if (user) {
+      await this.audit.logSimple(user.id, user.name, AuditActions.SHARE_LINK_DELETE, "shared_link", { count: result.count })
+    }
+    return { success: true, count: result.count }
   }
 
   async accessLink(code: string, requestIp?: string) {
@@ -272,14 +349,14 @@ export class SharingService {
     this.checkIpRestriction(link, requestIp)
 
     if (link.isGeoRestricted) {
-      throw new ForbiddenException("Geo-restriction is not yet configured. Contact the administrator.")
+      throw new ForbiddenException("Geo-restriction is active on this link")
     }
 
     try {
       await this.audit.log(
         link.userId, "anonymous_guest",
         AuditActions.SHARE_LINK_ACCESS, "shared_link",
-        requestIp || "0.0.0.0", "",
+        sanitizeIp(requestIp), "",
         { code, fileName: link.fileName, fileSize: link.fileSize, requiresPassword: !!link.password },
       )
     } catch { /* ignore audit log constraint error for public access */ }
@@ -300,24 +377,24 @@ export class SharingService {
     this.checkIpRestriction(link, requestIp)
 
     if (link.isGeoRestricted) {
-      throw new ForbiddenException("Geo-restriction is not yet configured. Contact the administrator.")
+      throw new ForbiddenException("Geo-restriction is active on this link")
     }
 
     if (link.password) {
-      if (!password) throw new BadRequestException("Password is required")
+      if (!password) throw new BadRequestException("Password is required for this secure file")
       const valid = await argon2.verify(link.password, password)
       if (!valid) throw new ForbiddenException("Invalid password")
     }
 
     if (!link.filePath || !existsSync(link.filePath)) {
-      throw new NotFoundException("File not found on server")
+      throw new NotFoundException("File no longer exists on server")
     }
 
     try {
       await this.audit.log(
         link.userId, "anonymous_guest",
         AuditActions.SHARE_LINK_VERIFY, "shared_link",
-        requestIp || "0.0.0.0", "",
+        sanitizeIp(requestIp), "",
         { code, fileName: link.fileName, fileSize: link.fileSize },
       )
     } catch { /* ignore audit log constraint error for public access */ }
@@ -330,7 +407,6 @@ export class SharingService {
     const fileSize = link.fileSize || 0
     const fileName = (link.fileName || "download").replace(/["\r\n]/g, "")
     
-    // Set appropriate Content-Type based on file extension
     const ext = extname(link.fileName || "").toLowerCase()
     let contentType = "application/octet-stream"
     
@@ -361,7 +437,13 @@ export class SharingService {
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "no-store, must-revalidate",
     })
+
     const stream = createReadStream(link.filePath)
+    stream.on("error", (err) => {
+      if (!res.headersSent) {
+        res.status(500).json({ statusCode: 500, message: "Error reading file stream" })
+      }
+    })
     stream.pipe(res)
   }
 }

@@ -13,9 +13,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useMessageStore } from "@/store/useMessageStore"
+import { useMessageStore, DEMO_USER_DETAILS } from "@/store/useMessageStore"
 import { useAuthStore } from "@/store/useAuthStore"
 import { useDebounce } from "@/hooks/useDebounce"
+import { UserProfileModal, type UserProfileData } from "@/components/UserProfileModal"
 import toast from "react-hot-toast"
 
 type SidebarView = "contacts" | "search" | "requests"
@@ -56,6 +57,28 @@ export default function SecureMessagingPage() {
   const [searchingGif, setSearchingGif] = useState(false)
   const [showStickerPicker, setShowStickerPicker] = useState(false)
   const [stickerCategory, setStickerCategory] = useState<"security" | "fun" | "emoji">("security")
+
+  const [profileUser, setProfileUser] = useState<UserProfileData | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+  const openUserProfile = (targetUser: any) => {
+    if (!targetUser) return
+    const demo = DEMO_USER_DETAILS[targetUser.id]
+    const userObj: UserProfileData = {
+      id: targetUser.id,
+      name: targetUser.name || demo?.name || "Security Operative",
+      email: targetUser.email || demo?.email || `${targetUser.id}@stegshield.gov`,
+      role: targetUser.role || demo?.role || "INVESTIGATOR",
+      avatar: targetUser.avatar || demo?.avatar || null,
+      isVerified: targetUser.isVerified ?? demo?.isVerified ?? true,
+      isMFAEnabled: targetUser.isMFAEnabled ?? demo?.isMFAEnabled ?? true,
+      createdAt: targetUser.createdAt || demo?.createdAt || "2024-01-15T08:00:00Z",
+      department: targetUser.department || demo?.department || "Cyber Defense & Forensics",
+      fingerprint: targetUser.fingerprint || demo?.fingerprint,
+    }
+    setProfileUser(userObj)
+    setShowProfileModal(true)
+  }
 
   const STICKERS = [
     { id: "s1", category: "security", name: "Shield Guard", url: "https://cdn-icons-png.flaticon.com/512/2092/2092663.png" },
@@ -484,7 +507,14 @@ export default function SecureMessagingPage() {
                           dragIndex === index ? "opacity-50" : ""
                         }`}
                       >
-                        <Avatar className="h-10 w-10 shrink-0">
+                        <Avatar
+                          className="h-10 w-10 shrink-0 cursor-pointer hover:ring-2 hover:ring-cyber-500/50 transition-all"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openUserProfile(contact)
+                          }}
+                          title="Touch to view profile details"
+                        >
                           <AvatarFallback className="bg-cyber-500/20 text-cyber-400">
                             {contact.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -492,6 +522,16 @@ export default function SecureMessagingPage() {
                         <div className="flex-1 text-left min-w-0">
                           <p className="text-sm font-medium truncate">{contact.name}</p>
                         </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openUserProfile(contact)
+                        }}
+                        className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-cyber-500/20 hover:text-cyber-400 transition-all"
+                        title="View profile details"
+                      >
+                        <Eye className="h-4 w-4" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -556,13 +596,17 @@ export default function SecureMessagingPage() {
                             key={u.id}
                             className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
                           >
-                            <Avatar className="h-10 w-10 shrink-0">
+                            <Avatar
+                              className="h-10 w-10 shrink-0 cursor-pointer hover:ring-2 hover:ring-cyber-500/50 transition-all"
+                              onClick={() => openUserProfile(u)}
+                              title="Touch to view profile details"
+                            >
                               <AvatarFallback className="bg-cyber-500/20 text-cyber-400">
                                 {u.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{u.name}</p>
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openUserProfile(u)}>
+                              <p className="text-sm font-medium truncate hover:text-cyber-400 transition-colors">{u.name}</p>
                               <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                             </div>
                             {isSelf ? (
@@ -740,25 +784,43 @@ export default function SecureMessagingPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 hidden sm:flex" onClick={() => selectContact(null)}>
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs">
-                        {selectedContact?.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-semibold">{selectedContact?.name || "Unknown"}</p>
-                      <p className="text-[11px] flex items-center gap-1">
-                        {encryptEnabled ? (
-                          <><Lock className="h-3 w-3 text-success" /><span className="text-success">AES-256-GCM</span></>
-                        ) : (
-                          <><span className="text-warning">Unencrypted</span></>
-                        )}
-                      </p>
+                    <div
+                      className="flex items-center gap-3 cursor-pointer group/profile p-1 -m-1 rounded-lg hover:bg-accent/60 transition-all"
+                      onClick={() => openUserProfile(selectedContact)}
+                      title="Touch to view profile details"
+                    >
+                      <Avatar className="h-9 w-9 ring-2 ring-cyber-500/20 group-hover/profile:ring-cyber-500/60 transition-all">
+                        <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
+                          {selectedContact?.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold group-hover/profile:text-cyber-400 transition-colors flex items-center gap-1.5">
+                          {selectedContact?.name || "Unknown"}
+                          <Eye className="h-3 w-3 text-muted-foreground opacity-60 group-hover/profile:opacity-100 transition-opacity" />
+                        </p>
+                        <p className="text-[11px] flex items-center gap-1">
+                          {encryptEnabled ? (
+                            <><Lock className="h-3 w-3 text-success" /><span className="text-success font-medium">AES-256-GCM</span></>
+                          ) : (
+                            <><span className="text-warning">Unencrypted</span></>
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 text-cyber-400 hover:text-cyber-300 hover:bg-cyber-500/10"
+                      onClick={() => openUserProfile(selectedContact)}
+                      title="View user details"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Details
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast.success("Encryption active")}>
-                      <Lock className="h-4 w-4" />
+                      <Lock className="h-4 w-4 text-success" />
                     </Button>
                   </div>
                 </div>
@@ -1169,6 +1231,13 @@ export default function SecureMessagingPage() {
           )}
         </Card>
       </div>
+
+      <UserProfileModal
+        user={profileUser}
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onSendMessage={(userId) => selectContact(userId)}
+      />
     </div>
   )
 }

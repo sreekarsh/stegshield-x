@@ -40,6 +40,12 @@ export class AdminController {
     @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) { return this.adminService.getSessions(page, Math.min(limit, 100)) }
 
+  @Delete("sessions/:id")
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async revokeSession(@Param("id") id: string) {
+    return this.adminService.revokeSession(id)
+  }
+
   @Get("users")
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   async getUsers(

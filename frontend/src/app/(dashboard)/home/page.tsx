@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import {
   Shield, Eye, Lock, HardDrive, Activity,
-  CheckCircle, Users, Brain, Database, Download, Upload, AlertCircle, ActivitySquare,
+  CheckCircle, Users, Brain, Database, Download, Upload, AlertCircle, ActivitySquare, FileText,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
@@ -111,6 +111,116 @@ export default function DashboardPage() {
     { title: "Messages Sent", value: String(stats?.messages || 0), change: `${stats?.keys || 0} active keys`, icon: Shield, color: "text-cyber-400", bg: "bg-cyber-500/10", progress: stats?.messages ? Math.min(Math.round(stats.messages / 1000 * 100), 100) : 0 },
   ]
 
+  const exportPdf = () => {
+    if (!stats) { toast.error("No data to export"); return }
+    const now = new Date()
+    const dateStr = now.toLocaleString()
+    const rows = [
+      { label: "System Health", value: stats.systemHealth || "N/A", icon: "🟢" },
+      { label: "Total Users", value: String(stats.users), icon: "👥" },
+      { label: "Verified Users", value: String(stats.verifiedUsers), icon: "✅" },
+      { label: "Evidence Items", value: String(stats.evidence), icon: "🗄️" },
+      { label: "Encrypted Messages", value: String(stats.messages), icon: "💬" },
+      { label: "Active Keys", value: String(stats.keys), icon: "🔑" },
+      { label: "Storage Used", value: stats.storageUsed, icon: "💾" },
+      { label: "System Uptime", value: stats.uptime || "N/A", icon: "⏱️" },
+      { label: "Active Sessions", value: String(stats.activeSessions), icon: "📡" },
+      { label: "Organizations", value: String(stats.organizations), icon: "🏢" },
+      { label: "Forensics Reports", value: String(stats.forensicsReports), icon: "🔍" },
+    ]
+    const historyTableRows = history.slice(-10).map(h =>
+      `<tr><td>${h.time}</td><td>${h.users}</td><td>${h.evidence}</td><td>${h.messages}</td><td>${h.keys}</td></tr>`
+    ).join("")
+    const activityRows = recentActivity.slice(0, 10).map(a =>
+      `<tr><td>${new Date(a.createdAt).toLocaleString()}</td><td>${a.userName}</td><td>${a.action}</td><td>${a.resource}</td></tr>`
+    ).join("")
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>StegShield X — Dashboard Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; }
+    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #6366f1; padding-bottom: 20px; margin-bottom: 32px; }
+    .logo { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #22c55e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .meta { text-align: right; font-size: 12px; color: #64748b; }
+    .section-title { font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: #1e293b; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 32px; }
+    .stat-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; }
+    .stat-icon { font-size: 20px; margin-bottom: 8px; }
+    .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 12px; }
+    th { background: #1e293b; color: #94a3b8; font-weight: 600; padding: 10px 12px; text-align: left; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { padding: 9px 12px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+    tr:hover td { background: #0f172a; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; }
+    .healthy { background: #052e16; color: #22c55e; }
+    .footer { border-top: 1px solid #1e293b; padding-top: 16px; font-size: 11px; color: #475569; text-align: center; margin-top: 32px; }
+    @media print {
+      body { background: white; color: black; padding: 24px; }
+      .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; }
+      th { background: #f1f5f9; color: #475569; }
+      td { border-bottom: 1px solid #e2e8f0; }
+      .logo { -webkit-text-fill-color: #6366f1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">🛡 StegShield X</div>
+      <div class="subtitle">Dashboard Analytics Report</div>
+    </div>
+    <div class="meta">
+      <div>Generated: ${dateStr}</div>
+      <div>User: ${user?.name || user?.email || "Unknown"}</div>
+      <div>Role: ${user?.role || "N/A"}</div>
+    </div>
+  </div>
+
+  <div class="section-title">System Statistics</div>
+  <div class="stats-grid">
+    ${rows.map(r => `
+      <div class="stat-card">
+        <div class="stat-icon">${r.icon}</div>
+        <div class="stat-label">${r.label}</div>
+        <div class="stat-value">${r.value}</div>
+      </div>
+    `).join("")}
+  </div>
+
+  ${historyTableRows ? `
+  <div class="section-title">Activity History (Last 10 Snapshots)</div>
+  <table>
+    <thead><tr><th>Time</th><th>Users</th><th>Evidence</th><th>Messages</th><th>Keys</th></tr></thead>
+    <tbody>${historyTableRows}</tbody>
+  </table>
+  ` : ""}
+
+  ${activityRows ? `
+  <div class="section-title">Recent Audit Activity</div>
+  <table>
+    <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th></tr></thead>
+    <tbody>${activityRows}</tbody>
+  </table>
+  ` : ""}
+
+  <div class="footer">StegShield X — Confidential Report &nbsp;·&nbsp; Generated ${dateStr} &nbsp;·&nbsp; Do not distribute without authorization</div>
+  <script>window.onload = function() { window.print() }<\/script>
+</body></html>`
+
+    const win = window.open("", "_blank", "width=900,height=700")
+    if (!win) { toast.error("Pop-up blocked — allow pop-ups and try again"); return }
+    win.document.write(html)
+    win.document.close()
+    toast.success("PDF report opened — use browser Print → Save as PDF")
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,6 +249,9 @@ export default function DashboardPage() {
             const a = document.createElement("a"); a.href = url; a.download = `dashboard-stats-${new Date().toISOString().slice(0,10)}.csv`; a.click()
             URL.revokeObjectURL(url); toast.success("CSV exported")
           }}><Download className="mr-2 h-4 w-4" /> Export CSV</Button>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <FileText className="mr-2 h-4 w-4" /> Export PDF
+          </Button>
           <Button variant="cyber" size="sm" onClick={() => router.push("/evidence-vault")}><Upload className="mr-2 h-4 w-4" /> Quick Upload</Button>
         </div>
       </div>

@@ -47,6 +47,12 @@ import { DashboardModule } from "./dashboard/dashboard.module"
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), "uploads"),
       serveRoot: "/uploads",
+      serveStaticOptions: {
+        setHeaders: (res) => {
+          res.setHeader("Access-Control-Allow-Origin", "*")
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin")
+        },
+      },
     }),
 
     PdfModule,

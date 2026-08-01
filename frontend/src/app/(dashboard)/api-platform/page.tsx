@@ -1,10 +1,10 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import {
   Terminal, Key, BookOpen, Loader2, Trash2, Copy, Check,
   Globe, ChevronDown, Shield, Clock, Code, Play, RefreshCw,
-  Eye, EyeOff, ToggleLeft, ToggleRight, Send,
+  Eye, EyeOff, ToggleLeft, ToggleRight, Send, X,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -71,6 +71,7 @@ export default function ApiPlatformPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [showKey, setShowKey] = useState<string | null>(null)
   const [docLang, setDocLang] = useState("curl")
+  const [showGuideModal, setShowGuideModal] = useState(false)
   const keyInputRef = useRef<HTMLInputElement>(null)
 
   const [pgEndpoint, setPgEndpoint] = useState(playgroundEndpoints[0].path)
@@ -250,11 +251,20 @@ const result = await response.json()`,
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="API Platform"
-        description="RESTful API with comprehensive endpoints and developer tools"
-        action={{ label: "New Key", icon: Key, onClick: () => keyInputRef.current?.focus() }}
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">API Platform</h1>
+          <p className="text-sm text-muted-foreground">RESTful API with comprehensive endpoints, developer tools, and API key authentication</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="cyber" size="sm" onClick={() => setShowGuideModal(true)}>
+            <BookOpen className="mr-2 h-4 w-4" /> API Guide
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => keyInputRef.current?.focus()}>
+            <Key className="mr-2 h-4 w-4 text-cyber-400" /> New Key
+          </Button>
+        </div>
+      </div>
 
       <Tabs defaultValue="keys" className="space-y-6">
         <TabsList>
@@ -508,6 +518,106 @@ const result = await response.json()`,
       <ConfirmDialog open={!!deleteTarget} onOpenChange={() => !deleting && setDeleteTarget(null)} onConfirm={deleteKey}
         title="Delete API Key" description={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
         confirmLabel="Delete Key" variant="destructive" loading={deleting} />
+
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-xl border border-cyber-500/30 bg-card p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-cyber-500/10 text-cyber-400">
+                  <BookOpen className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">StegShield X — API Platform Integration Guide</h2>
+                  <p className="text-xs text-muted-foreground">Master developer integration, API keys, authentication, and REST endpoints</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowGuideModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-6 text-sm">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-cyber-400">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-xs font-bold">1</span>
+                  Generate Your API Key
+                </div>
+                <p className="text-xs text-muted-foreground pl-8">
+                  Navigate to the <strong>API Keys</strong> tab. Enter a key name (e.g., <code>Production CI/CD</code>), choose permissions (<strong>Read Only</strong>, <strong>Read & Write</strong>, or <strong>Full Access</strong>), and select expiration. Click <strong>Generate API Key</strong> and copy your secret key (<code>sk_...</code>).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-cyber-400">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-xs font-bold">2</span>
+                  Authenticate Requests
+                </div>
+                <p className="text-xs text-muted-foreground pl-8">
+                  Pass your API key as a Bearer Token in HTTP request headers:
+                </p>
+                <div className="pl-8">
+                  <pre className="p-3 rounded-lg bg-muted/60 text-xs font-mono text-cyan-300 border border-cyan-500/20">
+                    Authorization: Bearer sk_your_api_key_here
+                  </pre>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-cyber-400">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-xs font-bold">3</span>
+                  StegShield X API Endpoints
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 pl-8">
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <p className="font-semibold text-xs text-blue-400">🛡️ Steganography & AI</p>
+                    <p className="text-[11px] text-muted-foreground">Entropy analysis, LSB image steganography, password strength scoring, and deepfake frequency checks.</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <p className="font-semibold text-xs text-purple-400">📂 Evidence & Vault</p>
+                    <p className="text-[11px] text-muted-foreground">Upload forensic evidence files, verify chain of custody, list tamper reports, and store encrypted data.</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <p className="font-semibold text-xs text-green-400">🔐 Encryption & Keys</p>
+                    <p className="text-[11px] text-muted-foreground">Generate AES-GCM / RSA key pairs, manage key revocation, and perform file encryption.</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1">
+                    <p className="font-semibold text-xs text-amber-400">📜 Audit & Reports</p>
+                    <p className="text-[11px] text-muted-foreground">Retrieve audit logs, query system security stats, generate PDF/CSV reports, and check team memberships.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-cyber-400">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-xs font-bold">4</span>
+                  Interactive Playground & Code Examples
+                </div>
+                <p className="text-xs text-muted-foreground pl-8">
+                  Use the <strong>Playground</strong> tab to test requests directly in your browser, or switch to the <strong>Documentation</strong> tab to copy complete cURL, Python, and JavaScript snippets.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-muted/30 border border-border space-y-2">
+                <p className="font-semibold text-xs">Response Status Codes</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div><Badge variant="success" className="text-[9px]">200 OK</Badge> <span className="text-muted-foreground">Success</span></div>
+                  <div><Badge variant="outline" className="text-[9px]">400 Bad Request</Badge> <span className="text-muted-foreground">Invalid Payload</span></div>
+                  <div><Badge variant="destructive" className="text-[9px]">401 Unauthorized</Badge> <span className="text-muted-foreground">Invalid Key</span></div>
+                  <div><Badge variant="warning" className="text-[9px]">429 Rate Limited</Badge> <span className="text-muted-foreground">Exceeded limit</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button variant="outline" size="sm" onClick={() => setShowGuideModal(false)}>Close Guide</Button>
+              <Button variant="cyber" size="sm" onClick={() => { setShowGuideModal(false); keyInputRef.current?.focus() }}>
+                <Key className="mr-2 h-4 w-4" /> Create API Key
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

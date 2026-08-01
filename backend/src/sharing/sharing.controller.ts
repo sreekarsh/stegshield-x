@@ -1,4 +1,4 @@
-﻿import { Controller, Post, Get, Delete, Param, Body, UseGuards, Req, UseInterceptors, UploadedFile, Res } from "@nestjs/common"
+import { Controller, Post, Get, Delete, Param, Body, UseGuards, Req, UseInterceptors, UploadedFile, Res } from "@nestjs/common"
 import { Throttle } from "@nestjs/throttler"
 import { FileInterceptor } from "@nestjs/platform-express"
 import { memoryStorage } from "multer"
@@ -24,20 +24,34 @@ export class SharingController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateShareDto,
   ) {
-    const host = req.headers?.host || "localhost:4000"
+    const host = req.headers?.origin || req.headers?.referer || req.headers?.host || "localhost:4000"
     return this.sharingService.createLink(req.user.id, file, dto, host)
   }
 
   @Get("links")
   @UseGuards(JwtAuthGuard)
   async getLinks(@Req() req: any) {
-    const host = req.headers?.host || "localhost:4000"
+    const host = req.headers?.origin || req.headers?.referer || req.headers?.host || "localhost:4000"
     return this.sharingService.getLinks(req.user.id, host)
+  }
+
+  @Get("lan-ip")
+  getLanIp() {
+    return this.sharingService.getLanIpInfo()
+  }
+
+  @Delete("links/clear/all")
+  @UseGuards(JwtAuthGuard)
+  async deleteAllLinks(@Req() req: any) {
+    return this.sharingService.deleteAllLinks(req.user.id)
   }
 
   @Delete("links/:id")
   @UseGuards(JwtAuthGuard)
   async deleteLink(@Req() req: any, @Param("id") id: string) {
+    if (id === "clear/all" || id === "clear") {
+      return this.sharingService.deleteAllLinks(req.user.id)
+    }
     return this.sharingService.deleteLink(id, req.user.id)
   }
 

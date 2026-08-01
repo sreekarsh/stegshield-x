@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle } from "lucide-react"
+import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,8 @@ import { ThemeToggle } from "./theme-toggle"
 import { useUIStore } from "@/store/useUIStore"
 import { useAuthStore } from "@/store/useAuthStore"
 import { api } from "@/lib/api"
+import { getAvatarUrl } from "@/lib/utils"
+import { UserProfileModal } from "@/components/UserProfileModal"
 import Link from "next/link"
 import toast from "react-hot-toast"
 
@@ -37,6 +39,7 @@ export const Header = memo(function Header() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [recentNotifications, setRecentNotifications] = useState<NotificationItem[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   const initials = user?.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
@@ -169,7 +172,7 @@ export const Header = memo(function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-cyber-500/20 hover:ring-cyber-500/50 transition-all">
-              <AvatarImage src={user?.avatar || undefined} />
+              <AvatarImage src={getAvatarUrl(user?.avatar)} />
               <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
                 {initials}
               </AvatarFallback>
@@ -186,6 +189,12 @@ export const Header = memo(function Header() {
                 </Badge>
               )}
             </div>
+            <DropdownMenuItem
+              className="cursor-pointer font-medium text-cyber-400 focus:text-cyber-300"
+              onClick={() => setShowProfileModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" /> View Profile Details
+            </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/settings" className="flex items-center gap-2">
                 <User className="h-4 w-4" /> Account Settings
@@ -216,11 +225,27 @@ export const Header = memo(function Header() {
               onClick={handleLogout}
               className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
-              <LogOut className="h-4 w-4 mr-2" /> Log Out
+              <LogOut className="h-4 w-4 mr-2" /> Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <UserProfileModal
+        user={user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+          isVerified: user.isVerified,
+          isMFAEnabled: user.isMFAEnabled,
+          createdAt: user.createdAt,
+          department: "Cyber Security Administration",
+        } : null}
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </header>
   )
 })

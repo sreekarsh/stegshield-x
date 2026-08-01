@@ -36,9 +36,19 @@ export function ShareResultDialog({
   const [qrLoading, setQrLoading] = useState(true)
   const [qrError, setQrError] = useState(false)
 
-  const cleanShareUrl = typeof window !== "undefined" && shareUrl.includes("ngrok")
-    ? shareUrl.replace(/https?:\/\/[^/]*ngrok[^/]*\//i, `${window.location.origin}/`)
-    : shareUrl
+  const getScannableUrl = (url: string) => {
+    if (typeof window === "undefined" || !url) return url
+    if (url.includes("ngrok")) {
+      return url.replace(/https?:\/\/[^/]*ngrok[^/]*\//i, `${window.location.origin}/`)
+    }
+    if ((url.includes("localhost") || url.includes("127.0.0.1")) && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      const port = window.location.port ? `:${window.location.port}` : ""
+      return url.replace(/https?:\/\/[^/]+/, `${window.location.protocol}//${window.location.hostname}${port}`)
+    }
+    return url
+  }
+
+  const cleanShareUrl = getScannableUrl(shareUrl)
 
   // Auto-generate QR code when dialog opens
   useEffect(() => {
@@ -49,12 +59,13 @@ export function ShareResultDialog({
     
     const generateQR = async () => {
       try {
-        const QRCode = await import("qrcode")
+        const qrModule = await import("qrcode")
+        const QRCode = (qrModule as any).default || qrModule
         const dataUrl = await QRCode.toDataURL(cleanShareUrl, {
           width: 300,
           margin: 2,
           color: {
-            dark: "#0ea5e9", // cyber-400 color
+            dark: "#000000", // Pure black for maximum phone camera scannability
             light: "#ffffff",
           },
           errorCorrectionLevel: "M",

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState, useCallback } from "react"
 import {
@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useDebounce } from "@/hooks/useDebounce"
 import { api, ApiError } from "@/lib/api"
+import { useAuthStore } from "@/store/useAuthStore"
 import toast from "react-hot-toast"
 import type { Role } from "@/types"
 
@@ -66,6 +67,11 @@ const roleColors: Record<string, string> = {
 }
 
 export default function AdminPanelPage() {
+  const currentUser = useAuthStore((s) => s.user)
+  const userRole = (currentUser?.role || "investigator").toLowerCase()
+  const isMasterHead = currentUser?.email?.toLowerCase() === "sreekarsh44@gmail.com" || userRole === "owner"
+  const isAdminOrOwner = userRole === "admin" || userRole === "owner" || isMasterHead
+
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [monitoring, setMonitoring] = useState<MonitData | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
@@ -92,6 +98,9 @@ export default function AdminPanelPage() {
   const [alertType, setAlertType] = useState("info")
   const [sendingAlert, setSendingAlert] = useState(false)
   const [systemConfig, setSystemConfig] = useState<any>(null)
+  const [upgradeRequestedRole, setUpgradeRequestedRole] = useState("ADMIN")
+  const [upgradeReason, setUpgradeReason] = useState("")
+  const [submittingUpgrade, setSubmittingUpgrade] = useState(false)
   const pageSize = 10
 
   const debouncedUserSearch = useDebounce(userSearch, 300)
@@ -204,6 +213,38 @@ export default function AdminPanelPage() {
     finally { setSendingAlert(false) }
   }
 
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await api.delete(`/admin/sessions/${sessionId}`)
+      setSessions(prev => prev.filter(s => s.id !== sessionId))
+      setSessionsTotal(prev => prev - 1)
+      toast.success("Session revoked")
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to revoke session")
+    }
+  }
+
+  const handleRequestUpgrade = async () => {
+    if (!upgradeReason.trim()) {
+      toast.error("Please provide a reason for your upgrade request")
+      return
+    }
+    setSubmittingUpgrade(true)
+    try {
+      await api.post("/admin/notifications/broadcast", {
+        title: `Permission Upgrade Request: ${currentUser?.name || currentUser?.email}`,
+        message: `User ${currentUser?.email} (${currentUser?.role}) requested role upgrade to ${upgradeRequestedRole}. Reason: ${upgradeReason}`,
+        type: "warning",
+      })
+      toast.success("Upgrade request submitted to Lead Commander Sree Karsh!")
+      setUpgradeReason("")
+    } catch {
+      toast.error("Failed to submit request")
+    } finally {
+      setSubmittingUpgrade(false)
+    }
+  }
+
   const userTotalPages = Math.ceil(userTotal / pageSize)
   const auditTotalPages = Math.ceil(auditTotal / pageSize)
   const sessionsTotalPages = Math.ceil(sessionsTotal / pageSize)
@@ -242,6 +283,121 @@ export default function AdminPanelPage() {
         description="System administration, monitoring, and management"
         action={{ label: "Refresh", icon: RefreshCw, onClick: fetchData }}
       />
+
+      {isMasterHead ? (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-purple-600/15 to-cyan-500/15 border border-amber-500/30 flex items-center justify-between shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-lg border border-amber-400/40 shrink-0">
+              👑
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-amber-200 flex items-center gap-2">
+                Master Control Room — Lead Commander Sree Karsh
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">OWNER SUPER-ADMIN</Badge>
+              </h2>
+              <p className="text-xs text-muted-foreground">Full system authority: User role promotion, live session revocation, security policy enforcement, and infrastructure governance.</p>
+            </div>
+          </div>
+        </div>
+      ) : userRole === "admin" ? (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-600/15 via-indigo-600/15 to-cyan-500/15 border border-purple-500/30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300 font-bold text-lg border border-purple-400/40 shrink-0">
+              ⚡
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-purple-200 flex items-center gap-2">
+                System Administrator Command Center
+                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">ADMINISTRATOR</Badge>
+              </h2>
+              <p className="text-xs text-muted-foreground">User account controls, infrastructure monitoring, security audit trails, and system alert broadcasts.</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-cyan-600/15 via-indigo-600/15 to-purple-600/15 border border-cyan-500/30 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300 font-bold text-xl border border-cyan-400/40 shrink-0">
+                🛡️
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-cyan-200 flex items-center gap-2">
+                  Security Operative Workspace
+                  <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/40 text-[10px] uppercase">{currentUser?.role || "INVESTIGATOR"}</Badge>
+                </h2>
+                <p className="text-xs text-muted-foreground">Authenticated operative identity & forensic tools status console.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-base">Operative Credentials & Status</CardTitle>
+                <CardDescription>Verified identity details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between p-2.5 rounded-xl bg-muted/20">
+                  <span className="text-muted-foreground">Operative Name</span>
+                  <span className="font-semibold text-cyan-200">{currentUser?.name || "Operative"}</span>
+                </div>
+                <div className="flex justify-between p-2.5 rounded-xl bg-muted/20">
+                  <span className="text-muted-foreground">Email Address</span>
+                  <span className="font-mono text-xs">{currentUser?.email}</span>
+                </div>
+                <div className="flex justify-between p-2.5 rounded-xl bg-muted/20">
+                  <span className="text-muted-foreground">Current Assigned Role</span>
+                  <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/40 text-[10px]">{currentUser?.role || "INVESTIGATOR"}</Badge>
+                </div>
+                <div className="flex justify-between p-2.5 rounded-xl bg-muted/20">
+                  <span className="text-muted-foreground">Account Verification</span>
+                  <Badge variant={currentUser?.isVerified ? "success" : "outline"} className="text-[10px]">
+                    {currentUser?.isVerified ? "Verified Active" : "Pending Verification"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-base">Request Permission Upgrade</CardTitle>
+                <CardDescription>Submit an upgrade request to Lead Commander Sree Karsh</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block text-muted-foreground">Requested Role</label>
+                  <select
+                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
+                    value={upgradeRequestedRole}
+                    onChange={(e) => setUpgradeRequestedRole(e.target.value)}
+                  >
+                    <option value="ADMIN">ADMIN (System Administration)</option>
+                    <option value="EDITOR">EDITOR (Content & Evidence Management)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block text-muted-foreground">Reason / Justification</label>
+                  <Input
+                    placeholder="Describe why higher security clearances are required..."
+                    value={upgradeReason}
+                    onChange={(e) => setUpgradeReason(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <Button
+                  variant="cyber"
+                  className="w-full"
+                  disabled={submittingUpgrade}
+                  onClick={handleRequestUpgrade}
+                >
+                  <Send className="h-3.5 w-3.5 mr-2" /> Submit Upgrade Request
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -422,39 +578,44 @@ export default function AdminPanelPage() {
                 />
               ) : (
                 <div className="space-y-1">
-                  {users.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyber-500/30 to-purple-600/30 flex items-center justify-center text-xs font-bold text-cyber-400 shrink-0">
-                          {u.name
-                            ? u.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-                            : u.email[0].toUpperCase()}
+                  {users.map((u) => {
+                    const isUserMaster = u.email.toLowerCase() === "sreekarsh44@gmail.com"
+                    return (
+                      <div key={u.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isUserMaster ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : "bg-gradient-to-br from-cyber-500/30 to-purple-600/30 text-cyber-400"
+                          }`}>
+                            {isUserMaster ? "👑" : (u.name ? u.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : u.email[0].toUpperCase())}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate flex items-center gap-2">
+                              {u.name || u.email.split("@")[0]}
+                              {isUserMaster && (
+                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px]">👑 Master Head</Badge>
+                              )}
+                              {u._count && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {u._count.sessions} sessions · {u._count.evidence} evidence · {u._count.auditLogs} audits
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                              <Mail className="h-3 w-3 shrink-0" />{u.email}
+                              <span className="mx-1">·</span>
+                              <span className="text-[10px]">{new Date(u.createdAt).toLocaleDateString()}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate flex items-center gap-2">
-                            {u.name || u.email.split("@")[0]}
-                            {u._count && (
-                              <span className="text-[10px] text-muted-foreground">
-                                {u._count.sessions} sessions · {u._count.evidence} evidence · {u._count.auditLogs} audits
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                            <Mail className="h-3 w-3 shrink-0" />{u.email}
-                            <span className="mx-1">·</span>
-                            <span className="text-[10px]">{new Date(u.createdAt).toLocaleDateString()}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${roleColors[u.role.toLowerCase()] || ""}`}>
-                          {u.role}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${roleColors[u.role.toLowerCase()] || ""}`}>
+                            {u.role}
+                          </span>
                           <select
                             className="h-7 rounded-md border border-input bg-background px-1.5 text-[10px]"
                             value={u.role}
                             onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                            disabled={roleUpdating === u.id}
+                            disabled={roleUpdating === u.id || isUserMaster}
                           >
                             <option value="VIEWER">Viewer</option>
                             <option value="EDITOR">Editor</option>
@@ -462,24 +623,27 @@ export default function AdminPanelPage() {
                             <option value="ADMIN">Admin</option>
                             <option value="OWNER">Owner</option>
                           </select>
-                        {!u.isVerified && (
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => handleVerifyUser(u.id)}>
-                            <Mail className="h-3 w-3 mr-1" /> Verify
-                          </Button>
-                        )}
-                        <div className="flex items-center gap-1">
-                          {u.isMFAEnabled && <Fingerprint className="h-3 w-3 text-cyan-400" />}
-                          <Shield className={`h-3.5 w-3.5 ${u.isVerified ? "text-success" : "text-muted-foreground/50"}`} />
+                          {!u.isVerified && (
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => handleVerifyUser(u.id)}>
+                              <Mail className="h-3 w-3 mr-1" /> Verify
+                            </Button>
+                          )}
+                          <div className="flex items-center gap-1">
+                            {u.isMFAEnabled && <Fingerprint className="h-3 w-3 text-cyan-400" />}
+                            <Shield className={`h-3.5 w-3.5 ${u.isVerified ? "text-success" : "text-muted-foreground/50"}`} />
+                          </div>
+                          {!isUserMaster && (
+                            <Button
+                              variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                              onClick={() => setDeleteTarget(u)}
+                            >
+                              <UserX className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
-                        <Button
-                          variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive"
-                          onClick={() => setDeleteTarget(u)}
-                        >
-                          <UserX className="h-3.5 w-3.5" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
               {userTotalPages > 1 && (

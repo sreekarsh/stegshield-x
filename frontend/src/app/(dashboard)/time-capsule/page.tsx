@@ -1,10 +1,10 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Clock, Lock, Unlock, Trash2, Calendar, RefreshCw, Plus, Eye,
   AlertCircle, Shield, Timer, CheckCircle, Loader2, X,
-  Hourglass, KeyRound,
+  Hourglass, KeyRound, BookOpen, Key,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ interface Capsule {
 }
 
 export default function TimeCapsulePage() {
+  const [showGuideModal, setShowGuideModal] = useState(false)
   const [capsules, setCapsules] = useState<Capsule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -247,11 +248,20 @@ export default function TimeCapsulePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Time Capsule"
-        description="Encrypt data that can only be unlocked after a specific date"
-        action={{ label: "New Capsule", icon: Plus, onClick: () => setShowCreateForm(!showCreateForm) }}
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Time Capsule</h1>
+          <p className="text-sm text-muted-foreground">Encrypt data that can only be unlocked after a specific date</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="cyber" size="sm" onClick={() => setShowGuideModal(true)}>
+            <BookOpen className="mr-2 h-4 w-4" /> Time Capsule Guide
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCreateForm(!showCreateForm)}>
+            <Plus className="mr-2 h-4 w-4 text-cyber-400" /> New Capsule
+          </Button>
+        </div>
+      </div>
 
       {capsules.length > 0 && (
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
@@ -556,6 +566,72 @@ export default function TimeCapsulePage() {
         variant="destructive"
         loading={deleting}
       />
+
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-xl border border-cyber-500/30 bg-card p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-cyber-500/10 text-cyber-400">
+                  <Clock className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Time Capsule Integration Guide</h2>
+                  <p className="text-xs text-muted-foreground">Time-locked cryptographic data vault & zero-knowledge security</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowGuideModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border">
+                <p className="font-semibold text-xs text-cyber-400 mb-1">⏳ What is a Time Capsule?</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  A Time Capsule seals sensitive data or credentials so they <strong>cannot be decrypted or accessed until a specific future date and time</strong>. It combines client-side zero-knowledge AES-256-GCM encryption with server-enforced time authorization.
+                </p>
+              </div>
+
+              <div className="space-y-3 pl-2">
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">1</span>
+                    Creating & Sealing a Capsule
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    Click <strong>New Capsule</strong>. Enter a title, your secret payload, an optional client-side passphrase, and a target <strong>Unlock Date</strong> in the future.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">2</span>
+                    Time-Lock Protection
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    The capsule displays a live countdown timer. Until the unlock date is reached, the backend blocks decryption requests and data remains cryptographically locked.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyber-500/20 text-[10px] font-bold text-cyber-400">3</span>
+                    Unlocking & Decrypting
+                  </p>
+                  <p className="text-xs text-muted-foreground pl-7">
+                    Once the target date arrives, click <strong>Open Capsule</strong>. If you configured a client-side passphrase, enter it to decrypt the plaintext locally in your browser.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button variant="cyber" size="sm" onClick={() => setShowGuideModal(false)}>Got It</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

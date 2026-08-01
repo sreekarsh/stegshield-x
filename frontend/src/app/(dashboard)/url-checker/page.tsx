@@ -135,6 +135,18 @@ export default function UrlCheckerPage() {
   const [scanProgress, setScanProgress] = useState(0)
   const progressRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -236,6 +248,108 @@ export default function UrlCheckerPage() {
     a.download = `url-report-${Date.now()}.json`
     a.click()
     toast.success("Report exported as JSON")
+    setShowExportMenu(false)
+  }
+
+  const allFindings = result
+    ? Object.values(result.sections).flatMap(s => s.findings)
+    : []
+
+  const exportCsv = () => {
+    if (!result) return
+    const rows = [
+      ["URL", result.url],
+      ["Risk Score", String(result.riskScore)],
+      ["Risk Level", result.riskLevel],
+      ["Total Checks", String(result.summary.totalChecks)],
+      ["Passed", String(result.summary.passed)],
+      ["Warnings", String(result.summary.warnings)],
+      ["Failures", String(result.summary.failures)],
+      ["Scanned At", result.timestamp],
+      [],
+      ["Category", "Severity", "Type", "Detail"],
+      ...allFindings.map(f => [f.category, f.severity, f.type, f.detail.replace(/,/g, ";")]),
+    ]
+    const csv = rows.map(r => r.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = `url-report-${Date.now()}.csv`
+    a.click()
+    toast.success("Report exported as CSV")
+    setShowExportMenu(false)
+  }
+
+  const exportPdf = () => {
+    if (!result) return
+    const cfg = riskConfig[result.riskLevel as keyof typeof riskConfig] || riskConfig.low
+    const findingRows = allFindings.map(f => `
+      <tr>
+        <td>${f.category}</td>
+        <td><span class="badge sev-${f.severity}">${f.severity}</span></td>
+        <td><span class="badge type-${f.type}">${f.type}</span></td>
+        <td>${f.detail}</td>
+      </tr>`).join("")
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>URL Safety Report — ${result.url}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 36px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 18px; margin-bottom: 28px; }
+        .logo { font-size: 22px; font-weight: 800; color: #6366f1; }
+        .meta { text-align: right; font-size: 11px; color: #64748b; }
+        .score-box { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 90px; height: 90px; border-radius: 50%; border: 4px solid ${cfg.color || '#22c55e'}; margin: 0 auto 12px; }
+        .score-num { font-size: 32px; font-weight: 800; color: ${cfg.color || '#22c55e'}; }
+        .score-max { font-size: 11px; color: #64748b; }
+        .summary-row { display: flex; gap: 16px; margin: 20px 0 28px; }
+        .s-card { flex: 1; background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; text-align: center; }
+        .s-val { font-size: 24px; font-weight: 700; }
+        .s-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+        .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #6366f1; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #1e293b; color: #94a3b8; padding: 8px 10px; text-align: left; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+        .badge { display: inline-block; padding: 1px 7px; border-radius: 9999px; font-size: 10px; font-weight: 600; }
+        .sev-critical { background: #450a0a; color: #f87171; }
+        .sev-high { background: #431407; color: #fb923c; }
+        .sev-medium { background: #422006; color: #fbbf24; }
+        .sev-low { background: #052e16; color: #4ade80; }
+        .type-passed { background: #052e16; color: #4ade80; }
+        .type-warning { background: #422006; color: #fbbf24; }
+        .type-failed { background: #450a0a; color: #f87171; }
+        .type-info { background: #0c1a4d; color: #60a5fa; }
+        .url-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 12px; word-break: break-all; margin-bottom: 20px; }
+        .footer { border-top: 1px solid #1e293b; margin-top: 28px; padding-top: 12px; font-size: 10px; color: #475569; text-align: center; }
+        @media print { body { background: white; color: black; } .s-card { background: #f8fafc; border-color: #e2e8f0; } th { background: #f1f5f9; color: #475569; } .url-box { background: #f8fafc; } }
+      </style>
+    </head><body>
+      <div class="header">
+        <div><div class="logo">🛡 StegShield X</div><div style="font-size:12px;color:#64748b;margin-top:4px">URL Safety Analysis Report</div></div>
+        <div class="meta"><div>${new Date(result.timestamp).toLocaleString()}</div><div>StegShield X URL Checker</div></div>
+      </div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div class="score-box"><div class="score-num">${result.riskScore}</div><div class="score-max">/ 100</div></div>
+        <div style="font-size:14px;font-weight:700;color:${cfg.color || '#22c55e'};margin-bottom:4px">${result.riskLevel?.toUpperCase().replace('-', ' ')} RISK</div>
+      </div>
+      <div class="url-box">🔗 ${result.url}</div>
+      <div class="summary-row">
+        <div class="s-card"><div class="s-val" style="color:#4ade80">${result.summary.passed}</div><div class="s-label">Passed</div></div>
+        <div class="s-card"><div class="s-val" style="color:#fbbf24">${result.summary.warnings}</div><div class="s-label">Warnings</div></div>
+        <div class="s-card"><div class="s-val" style="color:#f87171">${result.summary.failures}</div><div class="s-label">Failed</div></div>
+        <div class="s-card"><div class="s-val">${result.summary.totalChecks}</div><div class="s-label">Total Checks</div></div>
+      </div>
+      <div class="section-title">Security Findings</div>
+      <table><thead><tr><th>Category</th><th>Severity</th><th>Status</th><th>Detail</th></tr></thead>
+        <tbody>${findingRows}</tbody></table>
+      <div class="footer">StegShield X — Confidential Security Report &nbsp;·&nbsp; Generated ${new Date().toLocaleString()} &nbsp;·&nbsp; Do not distribute without authorization</div>
+      <script>window.onload=function(){window.print()}<\/script>
+    </body></html>`
+    const win = window.open("", "_blank", "width=920,height=720")
+    if (!win) { toast.error("Pop-up blocked — allow pop-ups and try again"); return }
+    win.document.write(html)
+    win.document.close()
+    toast.success("PDF report opened — use Print → Save as PDF")
+    setShowExportMenu(false)
   }
 
   const copyReport = () => {
@@ -393,9 +507,42 @@ export default function UrlCheckerPage() {
                         </div>
                       )}
                       <div className="flex gap-2 w-full">
-                        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={exportJson}>
-                          <Download className="h-3 w-3 mr-1" /> Export
-                        </Button>
+                        {/* Export dropdown */}
+                        <div className="relative flex-1" ref={exportMenuRef}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={() => setShowExportMenu(v => !v)}
+                          >
+                            <Download className="h-3 w-3 mr-1" /> Export <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                          {showExportMenu && (
+                            <div className="absolute bottom-full mb-1 left-0 w-40 rounded-xl border border-border/60 bg-background shadow-2xl shadow-black/40 overflow-hidden z-50">
+                              <button
+                                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors text-left"
+                                onClick={exportJson}
+                              >
+                                <FileJson className="h-3.5 w-3.5 text-blue-400" />
+                                <span>Export JSON</span>
+                              </button>
+                              <button
+                                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors text-left border-t border-border/40"
+                                onClick={exportCsv}
+                              >
+                                <FileText className="h-3.5 w-3.5 text-emerald-400" />
+                                <span>Export CSV</span>
+                              </button>
+                              <button
+                                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors text-left border-t border-border/40"
+                                onClick={exportPdf}
+                              >
+                                <Download className="h-3.5 w-3.5 text-red-400" />
+                                <span>Export PDF</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={copyReport}>
                           <Copy className="h-3 w-3 mr-1" /> Copy
                         </Button>

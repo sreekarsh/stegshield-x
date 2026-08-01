@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Post,
   Get,
@@ -97,7 +97,7 @@ export class WatermarkController {
 
   @Get(":id/download")
   @UseGuards(JwtAuthGuard)
-  async downloadWatermarked(@Req() req: any, @Param("id") id: string, @Res({ passthrough: true }) res: Response) {
+  async downloadWatermarked(@Req() req: any, @Param("id") id: string, @Res() res: Response) {
     const result = await this.watermarkService.downloadWatermarked(req.user.id, id);
     res.setHeader("Content-Type", result.mime);
     res.setHeader("Content-Disposition", `attachment; filename="${result.name}"`);
@@ -106,7 +106,7 @@ export class WatermarkController {
 
   @Get(":id/original")
   @UseGuards(JwtAuthGuard)
-  async downloadOriginal(@Req() req: any, @Param("id") id: string, @Res({ passthrough: true }) res: Response) {
+  async downloadOriginal(@Req() req: any, @Param("id") id: string, @Res() res: Response) {
     const result = await this.watermarkService.downloadOriginal(req.user.id, id);
     res.setHeader("Content-Type", result.mime);
     res.setHeader("Content-Disposition", `attachment; filename="${result.name}"`);
@@ -119,7 +119,7 @@ export class WatermarkController {
   async previewVisible(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { text: string; x?: number; y?: number; opacity?: number; fontSize?: number; color?: string },
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
     if (!file) throw new BadRequestException("File is required");
     if (!body.text) throw new BadRequestException("Watermark text is required");
@@ -135,9 +135,18 @@ export class WatermarkController {
     res.send(result.buffer);
   }
 
+  @Delete("clear/all")
+  @UseGuards(JwtAuthGuard)
+  async deleteAll(@Req() req: any) {
+    return this.watermarkService.deleteAll(req.user.id);
+  }
+
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
   async delete(@Req() req: any, @Param("id") id: string) {
+    if (id === "clear/all" || id === "clear") {
+      return this.watermarkService.deleteAll(req.user.id);
+    }
     return this.watermarkService.delete(req.user.id, id);
   }
 }

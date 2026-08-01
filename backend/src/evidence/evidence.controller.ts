@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Post,
   Get,
@@ -20,6 +20,7 @@ import { Throttle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname, join } from "path";
+import { existsSync, mkdirSync } from "fs";
 import { Response } from "express";
 import { EvidenceService, CreateEvidenceDto, UpdateEvidenceDto, BulkOperationDto, PaginatedResult, EvidenceWithCustody } from "./evidence.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
@@ -27,7 +28,13 @@ import { DecoyVaultGuard } from "../decoy/decoy-vault.guard";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 
 const evidenceStorage = diskStorage({
-  destination: join(process.cwd(), "uploads", "evidence", "temp"),
+  destination: (_req, _file, cb) => {
+    const dir = join(process.cwd(), "uploads", "evidence", "temp");
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + extname(file.originalname));
@@ -128,7 +135,15 @@ export class EvidenceController {
   @Post(":id/verify")
   @UseGuards(JwtAuthGuard)
   async verifyIntegrity(@Req() req: any, @Param("id") id: string) {
-    return this.evidenceService.verifyIntegrity(req.user.id, id);
+    const res = await this.evidenceService.verifyIntegrity(req.user.id, id);
+    return {
+      verified: res.valid,
+      valid: res.valid,
+      hash: res.actual,
+      storedHash: res.expected,
+      expected: res.expected,
+      actual: res.actual,
+    };
   }
 
   @Post("bulk")
@@ -154,6 +169,6 @@ export class EvidenceController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Req() req: any, @Param("id") id: string) {
     const result = await this.evidenceService.bulkOperation(req.user.id, { ids: [id], action: "delete" });
-    if (result.failed.length) throw result.failed[0].error;
+    if (result.failed.length) throw new BadRequestException(result.failed[0].error);
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, UseGuards, Req, Res } from "@nestjs/common"
+import { Controller, Get, Post, Delete, Param, Body, HttpCode, HttpStatus, UseGuards, Req, Res } from "@nestjs/common"
 import { AuthGuard } from "@nestjs/passport"
 import { Throttle } from "@nestjs/throttler"
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger"
@@ -105,7 +105,7 @@ export class AuthController {
     if (!token) {
       return { accessToken: null }
     }
-    const result = await this.authService.refresh(token)
+    const result = await this.authService.refresh(token, extractClientIp(req))
     setRefreshCookie(res, result.refreshToken)
     setAccessCookie(res, result.accessToken)
     setUserRoleCookie(res, result.user.role)
@@ -118,7 +118,7 @@ export class AuthController {
   async logout(@Req() req: any, @Res({ passthrough: true }) res: any) {
     clearRefreshCookie(res)
     clearAccessCookie(res)
-    return this.authService.logout(req.user.id)
+    return this.authService.logout(req.user.id, extractClientIp(req))
   }
 
   @Post("change-password")
@@ -159,6 +159,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async getSessions(@Req() req: any) {
     return this.authService.getSessions(req.user.id)
+  }
+
+  @Delete("sessions/:id")
+  @UseGuards(JwtAuthGuard)
+  async revokeSession(@Req() req: any, @Param("id") id: string) {
+    if (id === "all") {
+      return this.authService.revokeAllOtherSessions(req.user.id)
+    }
+    return this.authService.revokeSession(req.user.id, id)
   }
 
   @Get("google")

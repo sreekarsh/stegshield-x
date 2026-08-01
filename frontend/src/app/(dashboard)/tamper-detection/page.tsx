@@ -330,6 +330,22 @@ export default function TamperDetectionPage() {
         <TabsContent value="results">
           {result ? (
             <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl glass-card border border-border shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-cyber-500/10 text-cyber-400">
+                    <ScanLine className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold truncate max-w-xs sm:max-w-md">{result.fileName}</p>
+                    <p className="text-xs text-muted-foreground">Scanned at {new Date(result.timestamp).toLocaleTimeString()} · {formatSize(result.fileSize)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="destructive" size="sm" onClick={resetAll}>
+                    <Trash2 className="h-4 w-4 mr-1.5" /> Clear & Delete Analysis
+                  </Button>
+                </div>
+              </div>
               {result.degraded && (
                 <Card className="glass-card border-amber-500/30">
                   <CardContent className="p-3 flex items-center gap-2 text-sm">

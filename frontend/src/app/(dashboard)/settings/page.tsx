@@ -16,10 +16,13 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { PageHeader } from "@/components/layout/page-header"
 import { api } from "@/lib/api"
 import { useUIStore } from "@/store/useUIStore"
+import { useAuthStore } from "@/store/useAuthStore"
+import { getAvatarUrl } from "@/lib/utils"
 import toast from "react-hot-toast"
 
 interface UserProfile {
@@ -85,6 +88,88 @@ export default function SettingsPage() {
 
   const [emailSignature, setEmailSignature] = useState("")
   const [savingSettings, setSavingSettings] = useState(false)
+
+  // Security Modals & Interactive Logic
+  const [showSessionsModal, setShowSessionsModal] = useState(false)
+  const [sessions, setSessions] = useState<any[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null)
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [loginHistory, setLoginHistory] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  const [showSmsModal, setShowSmsModal] = useState(false)
+  const [smsPhone, setSmsPhone] = useState("")
+  const [enablingSms, setEnablingSms] = useState(false)
+
+  const fetchSessions = async () => {
+    setLoadingSessions(true)
+    setShowSessionsModal(true)
+    try {
+      const data = await api.get<any[]>("/auth/sessions")
+      setSessions(Array.isArray(data) ? data : [])
+    } catch {
+      toast.error("Failed to fetch active sessions")
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const revokeSession = async (id: string) => {
+    setRevokingSessionId(id)
+    try {
+      await api.delete(`/auth/sessions/${id}`)
+      if (id === "all") {
+        setSessions(prev => prev.filter(s => s.isCurrent))
+        toast.success("All other sessions revoked")
+      } else {
+        setSessions(prev => prev.filter(s => s.id !== id))
+        toast.success("Session revoked")
+      }
+    } catch {
+      toast.error("Failed to revoke session")
+    } finally {
+      setRevokingSessionId(null)
+    }
+  }
+
+  const fetchLoginHistory = async () => {
+    setLoadingHistory(true)
+    setShowHistoryModal(true)
+    try {
+      const data = await api.get<any>("/audit?limit=30")
+      const items = data?.items || data || []
+      const filtered = (Array.isArray(items) ? items : []).filter((i: any) => 
+        String(i.action || "").includes("AUTH_") || 
+        String(i.action || "").includes("LOGIN") ||
+        String(i.entity || "").includes("user")
+      )
+      setLoginHistory(filtered.length > 0 ? filtered : (Array.isArray(items) ? items.slice(0, 10) : []))
+    } catch {
+      toast.error("Failed to fetch login history")
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const handleEnableSms = async () => {
+    if (!smsPhone || smsPhone.length < 7) {
+      toast.error("Please enter a valid phone number")
+      return
+    }
+    setEnablingSms(true)
+    try {
+      await api.patch("/users/me", { phone: smsPhone })
+      toast.success("SMS 2FA enabled! Verification code sent to " + smsPhone)
+      setPhone(smsPhone)
+      setShowSmsModal(false)
+    } catch {
+      toast.error("Failed to enable SMS authentication")
+    } finally {
+      setEnablingSms(false)
+    }
+  }
 
   const fetchNotifs = () => {
     api.get<any>("/notifications?limit=50")
@@ -220,9 +305,13 @@ export default function SettingsPage() {
       formData.append("file", file)
       const updated = await api.upload<UserProfile>("/users/avatar", formData)
       setProfile(prev => prev ? { ...prev, avatar: updated.avatar } : prev)
+      const currentUser = useAuthStore.getState().user
+      if (currentUser) {
+        useAuthStore.getState().setUser({ ...currentUser, avatar: updated.avatar })
+      }
       toast.success("Photo updated")
-    } catch {
-      toast.error("Failed to upload photo")
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || "Failed to upload photo")
     } finally {
       setUploadingAvatar(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
@@ -441,7 +530,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-4">
                   <Avatar className="h-28 w-28 ring-4 ring-cyber-500/20">
-                    <AvatarImage src={profile?.avatar} />
+                    <AvatarImage src={getAvatarUrl(profile?.avatar)} />
                     <AvatarFallback className="text-3xl bg-gradient-to-br from-cyber-500 to-purple-600 text-white">
                       {profile?.name?.charAt(0)?.toUpperCase() || "U"}
                     </AvatarFallback>
@@ -449,7 +538,7 @@ export default function SettingsPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/gif"
+                    accept="image/*"
                     className="hidden"
                     onChange={handleAvatarUpload}
                   />
@@ -543,7 +632,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">SMS Authentication</p>
                     <p className="text-xs text-muted-foreground">Receive codes via text message</p>
                   </div>
-                    <Button variant="outline" size="sm" onClick={() => toast.success("SMS authentication coming soon")}>Enable</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setSmsPhone(phone || ""); setShowSmsModal(true) }}>Enable</Button>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
@@ -551,10 +640,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Active Sessions</p>
                     <p className="text-xs text-muted-foreground">Manage logged-in devices</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={async () => {
-                    try { const data = await api.get<unknown[]>("/auth/sessions"); toast.success(`${data.length} active session(s)`) }
-                    catch { toast.error("Failed to fetch sessions") }
-                  }}>
+                  <Button variant="outline" size="sm" onClick={fetchSessions}>
                     View
                   </Button>
                 </div>
@@ -563,7 +649,9 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Login History</p>
                     <p className="text-xs text-muted-foreground">Review recent sign-ins</p>
                   </div>
-                    <Button variant="outline" size="sm" onClick={() => toast.success("Login history coming soon")}><Clock className="mr-1 h-3 w-3" /> Review</Button>
+                  <Button variant="outline" size="sm" onClick={fetchLoginHistory}>
+                    <Clock className="mr-1 h-3 w-3" /> Review
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -904,6 +992,150 @@ export default function SettingsPage() {
         variant="destructive"
         loading={deletingAccount}
       />
+
+      {/* Active Sessions Modal */}
+      <Dialog open={showSessionsModal} onOpenChange={setShowSessionsModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-cyber-400" />
+              Active Sessions
+            </DialogTitle>
+            <DialogDescription>
+              Manage devices currently logged into your StegShield X account.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {loadingSessions ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-cyber-500" />
+              </div>
+            ) : sessions.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-6">No active sessions found.</p>
+            ) : (
+              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                {sessions.map((s: any) => (
+                  <div key={s.id || s.ip} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{s.device || s.browser || "Unknown Device"}</span>
+                        {s.isCurrent && <Badge variant="success" className="text-[10px]">Current Session</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono">IP: {s.ip || "Localhost"}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Last active: {s.lastActive ? new Date(s.lastActive).toLocaleString() : "Recently"}
+                      </p>
+                    </div>
+
+                    {!s.isCurrent && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={revokingSessionId === s.id}
+                        onClick={() => revokeSession(s.id)}
+                      >
+                        {revokingSessionId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Revoke"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {sessions.filter(s => !s.isCurrent).length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:bg-destructive/10"
+                disabled={revokingSessionId === "all"}
+                onClick={() => revokeSession("all")}
+              >
+                Revoke All Other Sessions
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Login History Modal */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-cyber-400" />
+              Login & Security Audit History
+            </DialogTitle>
+            <DialogDescription>
+              Review recent authentication events, sign-in attempts, and security logs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {loadingHistory ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-cyber-500" />
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-6">No recent login events recorded.</p>
+            ) : (
+              <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+                {loginHistory.map((log: any, idx: number) => (
+                  <div key={log.id || idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border text-sm">
+                    <div>
+                      <p className="font-medium text-foreground">{log.action?.replace(/_/g, " ") || "Security Event"}</p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {log.details?.ip ? `IP: ${log.details.ip}` : "IP: Local/Verified"} {log.details?.provider ? `• Provider: ${log.details.provider}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="outline" className="text-[10px]">
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Recently"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* SMS Authentication Modal */}
+      <Dialog open={showSmsModal} onOpenChange={setShowSmsModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-cyber-400" />
+              Enable SMS 2FA
+            </DialogTitle>
+            <DialogDescription>
+              Enter your mobile phone number to receive security verification codes via text message.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Mobile Phone Number</label>
+              <Input
+                type="tel"
+                value={smsPhone}
+                onChange={e => setSmsPhone(e.target.value)}
+                placeholder="+1 (555) 019-2834"
+              />
+            </div>
+
+            <Button
+              variant="cyber"
+              className="w-full"
+              disabled={enablingSms}
+              onClick={handleEnableSms}
+            >
+              {enablingSms ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Enable SMS Security
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

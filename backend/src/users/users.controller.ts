@@ -1,7 +1,8 @@
-import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, UseInterceptors, UploadedFile } from "@nestjs/common"
+import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, Param, UseInterceptors, UploadedFile, BadRequestException } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
 import { diskStorage } from "multer"
 import { extname, join } from "path"
+import { existsSync, mkdirSync } from "fs"
 import { ApiTags, ApiBearerAuth, ApiConsumes } from "@nestjs/swagger"
 import { Role } from "@prisma/client"
 import { UsersService } from "./users.service"
@@ -31,7 +32,13 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor("file", {
     storage: diskStorage({
-      destination: join(process.cwd(), "uploads", "avatars"),
+      destination: (_req, _file, cb) => {
+        const dir = join(process.cwd(), "uploads", "avatars")
+        if (!existsSync(dir)) {
+          mkdirSync(dir, { recursive: true })
+        }
+        cb(null, dir)
+      },
       filename: (_req, file, cb) => {
         cb(null, `avatar-${Date.now()}${extname(file.originalname)}`)
       },
@@ -40,6 +47,9 @@ export class UsersController {
   }))
   @ApiConsumes("multipart/form-data")
   async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Image file is required")
+    }
     const avatarUrl = `/uploads/avatars/${file.filename}`
     return this.usersService.update(req.user.id, { avatar: avatarUrl })
   }
@@ -57,6 +67,12 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.OWNER)
   async search(@Query("q") q: string, @Req() req: any) {
     return this.usersService.search(q, req.user.id)
+  }
+
+  @Get(":id")
+  @UseGuards(JwtAuthGuard)
+  async getUserProfile(@Param("id") id: string) {
+    return this.usersService.getPublicProfile(id)
   }
 
   @Delete("me")

@@ -41,3 +41,11 @@ export async function hashPassword(password: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")
 }
+
+export function getAvatarUrl(url?: string | null): string | undefined {
+  if (!url) return undefined
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+  const backendBase = apiBase.replace(/\/api\/?$/, "")
+  return `${backendBase}${url.startsWith("/") ? "" : "/"}${url}`
+}

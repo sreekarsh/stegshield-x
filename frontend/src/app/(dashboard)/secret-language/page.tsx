@@ -6,6 +6,7 @@ import {
   X, Copy, FileDown, FileUp, Search,
   History, AlertTriangle, MessageSquare, ArrowRight, ArrowLeft,
   Sparkles, Cpu, Loader2, Palette,
+  HelpCircle, ChevronRight, ChevronLeft, BookMarked, Wand2, Lock, Unlock, Layers,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -226,6 +227,111 @@ export default function SecretLanguagePage() {
   const [aiIncludePunct, setAiIncludePunct] = useState(false)
   const [aiGlyphCount, setAiGlyphCount] = useState(26)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
+  const [guideStep, setGuideStep] = useState(0)
+
+  const GUIDE_STEPS = [
+    {
+      icon: Languages,
+      color: "text-purple-400",
+      bg: "bg-purple-500/10 border-purple-500/30",
+      title: "Welcome to CryptGlyph! 🔐",
+      description: "CryptGlyph lets you create your own secret language using custom symbols called glyphs. Once you build your language, you can use it to encrypt and decrypt secret messages — only people who know your language can read them!",
+      tip: "Think of it like a personal cipher — every letter in the alphabet gets a unique symbol you define.",
+      example: null,
+      tab: null,
+    },
+    {
+      icon: Plus,
+      color: "text-cyber-400",
+      bg: "bg-cyber-500/10 border-cyber-500/30",
+      title: "Step 1 — Create a Language",
+      description: "Click the \"+ New Language\" button at the top right to create your own secret language. Give it a name like \"My Secret Code\" or use one of the built-in presets like Norse Runes or Cyberpunk Glyphs.",
+      tip: "You can have multiple languages! Switch between them using the language badges shown below the header.",
+      example: "Example: Create \"Agent Codex v1.0\" for your spy messages.",
+      tab: null,
+    },
+    {
+      icon: Palette,
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10 border-emerald-500/30",
+      title: "Step 2 — Symbol Builder Tab",
+      description: "The Symbol Builder is where you add glyphs. A glyph maps a letter (like \"A\") to a symbol (like \"⚡\"). Fill in the Character field (e.g. A), Symbol field (e.g. ⚡), a Meaning, and Category.",
+      tip: "Use the Quick Symbol Palette to pick from hundreds of built-in symbols with one click! Or use \"Auto-Fill A-Z\" to instantly fill all 26 letters.",
+      example: "A → ⚡, B → ☣, C → ⬡ ... and so on for every letter.",
+      tab: "builder",
+    },
+    {
+      icon: BookOpen,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10 border-blue-500/30",
+      title: "Step 3 — Dictionary Tab",
+      description: "The Dictionary shows all the glyphs you've defined in a visual grid. Search by character or symbol, filter by category, and see your entire language at a glance.",
+      tip: "If a letter has no glyph defined, it will stay unchanged when you encrypt — so make sure you map all letters you need!",
+      example: "View your full A→Z mapping in one place.",
+      tab: "dictionary",
+    },
+    {
+      icon: Lock,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10 border-amber-500/30",
+      title: "Step 4 — Encrypt Messages",
+      description: "Go to the Encrypt tab and type any message. CryptGlyph will replace every letter with its matching glyph symbol. The result is your encrypted secret message — share it with trusted people!",
+      tip: "Letters without a mapped glyph are kept as-is. Numbers and punctuation pass through unchanged by default.",
+      example: '"HELLO" might become "🛡◈🔗🔗◯" using Cyberpunk Hex Glyphs.',
+      tab: "encrypt",
+    },
+    {
+      icon: Unlock,
+      color: "text-green-400",
+      bg: "bg-green-500/10 border-green-500/30",
+      title: "Step 5 — Decrypt Messages",
+      description: "Got an encrypted message? Paste it in the Decrypt tab and CryptGlyph will automatically convert the symbols back into readable text using your current language.",
+      tip: "You must use the same language that was used to encrypt the message. If decryption shows strange results, check you have the right language selected.",
+      example: '"🛡◈🔗🔗◯" decrypts back to "HELLO" instantly.',
+      tab: "decrypt",
+    },
+    {
+      icon: History,
+      color: "text-pink-400",
+      bg: "bg-pink-500/10 border-pink-500/30",
+      title: "Step 6 — Message History",
+      description: "Every message you encrypt or decrypt is saved in History so you can refer back to it. You can copy any past result or clear the history when you're done.",
+      tip: "History is stored locally in your browser — it never leaves your device.",
+      example: null,
+      tab: "history",
+    },
+    {
+      icon: Layers,
+      color: "text-violet-400",
+      bg: "bg-violet-500/10 border-violet-500/30",
+      title: "Step 7 — Library & Presets",
+      description: "The Library tab shows all your saved languages. You can export a language to a JSON file to share it with someone, or import a language file from a friend so you can both encrypt/decrypt messages.",
+      tip: "You can also delete languages you no longer need. The last language can't be deleted.",
+      example: null,
+      tab: "library",
+    },
+    {
+      icon: Wand2,
+      color: "text-indigo-400",
+      bg: "bg-indigo-500/10 border-indigo-500/30",
+      title: "Step 8 — AI Language Generator",
+      description: "Don't want to manually define every glyph? Use the AI Generate tab! Pick a theme (Fantasy, Military, Sci-Fi...), a script style (Runes, Geometric...), and click Generate — your whole language is created instantly!",
+      tip: "After AI generation, you can still edit individual glyphs in the Symbol Builder to customize your language further.",
+      example: null,
+      tab: "ai",
+    },
+    {
+      icon: Share2,
+      color: "text-rose-400",
+      bg: "bg-rose-500/10 border-rose-500/30",
+      title: "You're all set! 🎉",
+      description: "Now you know everything about CryptGlyph! Create your language, map your glyphs, and start encrypting secret messages. Share your language file with trusted contacts so they can decrypt your messages.",
+      tip: "Pro tip: Use the QR sharing feature to share encrypted messages visually. Combine CryptGlyph with StegShield's steganography to hide them inside images!",
+      example: null,
+      tab: null,
+    },
+  ]
 
   const setLanguages = (updater: SecretLanguage[] | ((prev: SecretLanguage[]) => SecretLanguage[])) => {
     setLanguagesState(prev => {
@@ -570,11 +676,148 @@ export default function SecretLanguagePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="CryptGlyph"
-        description="Create symbolic languages, encrypt messages, and decrypt communications"
-        action={{ label: "New Language", icon: Plus, onClick: () => setShowCreate(!showCreate) }}
-      />
+
+      {/* ─── GUIDE MODAL ─── */}
+      {showGuide && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          onClick={() => setShowGuide(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-2xl border border-border/60 bg-background shadow-2xl shadow-purple-500/10 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Progress bar */}
+            <div className="h-1 bg-muted/40">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-cyber-500 transition-all duration-500"
+                style={{ width: `${((guideStep + 1) / GUIDE_STEPS.length) * 100}%` }}
+              />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border/40 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <BookMarked className="h-4 w-4 text-purple-400" />
+                <span className="text-xs font-semibold text-muted-foreground">CryptGlyph Guide</span>
+                <span className="text-xs text-muted-foreground/60">· Step {guideStep + 1} of {GUIDE_STEPS.length}</span>
+              </div>
+              <button
+                onClick={() => setShowGuide(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted/50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Step content */}
+            {(() => {
+              const step = GUIDE_STEPS[guideStep]
+              const Icon = step.icon
+              return (
+                <div className="p-6 space-y-4">
+                  {/* Icon + Title */}
+                  <div className="flex items-start gap-4">
+                    <div className={`p-3 rounded-2xl border ${step.bg} shrink-0`}>
+                      <Icon className={`h-6 w-6 ${step.color}`} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold">{step.title}</h2>
+                      {step.tab && (
+                        <button
+                          className="text-xs text-cyber-400 hover:text-cyber-300 transition-colors mt-0.5 underline underline-offset-2"
+                          onClick={() => { setActiveTab(step.tab!); setShowGuide(false) }}
+                        >
+                          → Go to {step.tab.charAt(0).toUpperCase() + step.tab.slice(1)} tab
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-foreground/80 leading-relaxed">{step.description}</p>
+
+                  {/* Tip */}
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                    <span className="text-base leading-none mt-0.5">💡</span>
+                    <p className="text-xs text-amber-200/80 leading-relaxed">{step.tip}</p>
+                  </div>
+
+                  {/* Example */}
+                  {step.example && (
+                    <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
+                      <p className="text-xs font-mono text-cyber-300">{step.example}</p>
+                    </div>
+                  )}
+
+                  {/* Step dots */}
+                  <div className="flex justify-center gap-1.5 pt-1">
+                    {GUIDE_STEPS.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setGuideStep(i)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          i === guideStep ? "w-6 bg-purple-500" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Footer nav */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border/40 bg-muted/10">
+              <button
+                onClick={() => setGuideStep(s => Math.max(0, s - 1))}
+                disabled={guideStep === 0}
+                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous
+              </button>
+
+              {guideStep < GUIDE_STEPS.length - 1 ? (
+                <button
+                  onClick={() => setGuideStep(s => s + 1)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 transition-colors text-sm font-semibold text-white"
+                >
+                  Next <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowGuide(false)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-cyber-600 hover:opacity-90 transition-opacity text-sm font-semibold text-white"
+                >
+                  Start Creating! 🚀
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <PageHeader
+          title="CryptGlyph"
+          description="Create symbolic languages, encrypt messages, and decrypt communications"
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-cyber-500/40 bg-cyber-500/10 hover:bg-cyber-500/20 text-cyber-300 hover:text-cyber-200 transition-all text-sm font-semibold shadow-lg shadow-cyber-500/10 hover:shadow-cyber-500/20"
+          >
+            <Plus className="h-4 w-4" />
+            New Language
+          </button>
+          <button
+            onClick={() => { setGuideStep(0); setShowGuide(true) }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 transition-all text-sm font-semibold shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20"
+          >
+            <HelpCircle className="h-4 w-4" />
+            How it Works
+          </button>
+        </div>
+      </div>
 
       {showCreate && (
         <Card className="glass-card border-primary/30">

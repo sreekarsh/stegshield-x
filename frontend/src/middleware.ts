@@ -21,9 +21,14 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  if (pathname === "/dashboard" || pathname === "/dashboard/") {
+    return NextResponse.redirect(new URL("/home", request.url))
+  }
+
   if (!token) {
     const loginUrl = new URL("/login", request.url)
-    loginUrl.searchParams.set("redirect", pathname)
+    const redirectTarget = (pathname === "/dashboard" || pathname === "/login" || pathname === "/register") ? "/home" : pathname
+    loginUrl.searchParams.set("redirect", redirectTarget)
     return NextResponse.redirect(loginUrl)
   }
 

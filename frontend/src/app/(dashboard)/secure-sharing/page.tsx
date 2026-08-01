@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import {
-  Share2, Link, Shield, Clock, Globe, Lock, QrCode, Copy, Check, Loader2,
+  Link, Shield, Clock, Globe, Lock, QrCode, Copy, Check, Loader2,
   Trash2, Upload, ExternalLink, File, RotateCcw, Download, Eye, EyeOff,
-  Zap, CheckCircle2, AlertCircle, X, Image as ImageIcon, Film, Music, FileText,
+  Zap, CheckCircle2, X, Image as ImageIcon, Film, Music, FileText, ZoomIn,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,28 @@ const toLanUrl = (url: string): string => {
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") u.hostname = LAN_IP
     return u.toString()
   } catch { return clean }
+}
+
+/** Replace localhost / 127.0.0.1 in a URL with the real LAN IP so QR codes work on phones */
+function resolveUrlForQr(url: string, lanIp: string): string {
+  if (!url) return url
+  try {
+    const u = new URL(url)
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+      if (lanIp) {
+        u.hostname = lanIp
+        return u.toString()
+      }
+    }
+  } catch { /* non-parseable URL, return as-is */ }
+  return url
+}
+
+function urlHasLocalhost(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1"
+  } catch { return false }
 }
 
 interface SharedLink {
@@ -83,6 +105,18 @@ function getFileIcon(name: string) {
   return File
 }
 
+function isImageFile(name: string): boolean {
+  const ext = (name || "").split(".").pop()?.toLowerCase() || ""
+  return ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)
+}
+
+function formatSizeUsage(bytes: number): string {
+  const pct = (bytes / (500 * 1024 * 1024)) * 100
+  if (pct < 0.01) return "< 0.01%"
+  if (pct < 1) return pct.toFixed(2) + "%"
+  return pct.toFixed(1) + "%"
+}
+
 // Production environment defaults
 const DEFAULT_IP_RESTRICTED = process.env.NEXT_PUBLIC_SHARING_DEFAULT_IP_RESTRICTED === "true"
 const DEFAULT_MAX_DOWNLOADS = process.env.NEXT_PUBLIC_SHARING_DEFAULT_MAX_DOWNLOADS || "unlimited"
@@ -106,6 +140,8 @@ export default function SecureSharingPage() {
   const [ipRestrict, setIpRestrict] = useState(DEFAULT_IP_RESTRICTED)
   const [allowedIPs, setAllowedIPs] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [showImagePreview, setShowImagePreview] = useState(false)
 
   // QR
   const [qrUrl, setQrUrl] = useState("")
@@ -117,6 +153,22 @@ export default function SecureSharingPage() {
 
   const [activeTab, setActiveTab] = useState("create")
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Detected server LAN IP (fetched once on mount)
+  const [serverLanIp, setServerLanIp] = useState<string>("")
+
+  useEffect(() => {
+    // Fetch LAN IP from backend so QR codes can auto-resolve localhost URLs
+    api.get<{ lanIp: string }>("/sharing/lan-ip")
+      .then(d => { if (d?.lanIp && d.lanIp !== "localhost") setServerLanIp(d.lanIp) })
+      .catch(() => {
+        // Fallback: if browser is NOT on localhost, the window hostname IS the LAN IP
+        if (typeof window !== "undefined") {
+          const h = window.location.hostname
+          if (h !== "localhost" && h !== "127.0.0.1") setServerLanIp(h)
+        }
+      })
+  }, [])
 
   // Share result dialog
   const [showShareResult, setShowShareResult] = useState(false)
@@ -143,10 +195,22 @@ export default function SecureSharingPage() {
   const handleFileSet = useCallback((f: File) => {
     if (f.size > 500 * 1024 * 1024) { toast.error("File exceeds 500MB limit"); return }
     setSelectedFile(f)
+    // Generate preview URL for images
+    if (isImageFile(f.name)) {
+      const url = URL.createObjectURL(f)
+      setImagePreviewUrl(url)
+    } else {
+      setImagePreviewUrl(null)
+    }
   }, [])
 
   const clearFile = () => {
     setSelectedFile(null)
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl)
+      setImagePreviewUrl(null)
+    }
+    setShowImagePreview(false)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
@@ -209,10 +273,27 @@ export default function SecureSharingPage() {
     finally { setDeleting(null) }
   }
 
+  const [clearingLinks, setClearingLinks] = useState(false)
+
+  const clearAllLinks = async () => {
+    if (links.length === 0) return
+    setClearingLinks(true)
+    try {
+      await api.delete("/sharing/links/clear/all")
+      setLinks([])
+      toast.success("All shared links cleared")
+    } catch {
+      toast.error("Failed to clear shared links")
+    } finally {
+      setClearingLinks(false)
+    }
+  }
+
   const generateQrFromUrl = async (url: string) => {
     if (!url) return
     try {
-      const QRCode = await import("qrcode")
+      const qrModule = await import("qrcode")
+      const QRCode = (qrModule as any).default || qrModule
       const correctionLevel = qrIncludeLogo || qrHighCorrection ? "H" : "M"
       const opts: any = {
         width: 400, margin: 2,
@@ -240,7 +321,7 @@ export default function SecureSharingPage() {
         }
         setQrDataUrl(canvas.toDataURL("image/png"))
       } else {
-        const dataUrl = await (QRCode as any).toDataURL(url, opts)
+        const dataUrl = await QRCode.toDataURL(url, opts)
         setQrDataUrl(dataUrl as string)
       }
     } catch {
@@ -252,7 +333,14 @@ export default function SecureSharingPage() {
     if (!qrUrl) { toast.error("Enter a URL first"); return }
     setQrGenerating(true)
     setQrDataUrl(null)
-    try { await generateQrFromUrl(qrUrl) }
+    try {
+      // Auto-resolve localhost → LAN IP so the QR code works when scanned by a phone
+      const resolvedUrl = resolveUrlForQr(qrUrl, serverLanIp)
+      if (resolvedUrl !== qrUrl) {
+        toast.success(`🔄 URL resolved to LAN IP: ${serverLanIp}`, { duration: 3000 })
+      }
+      await generateQrFromUrl(resolvedUrl)
+    }
     catch { toast.error("Failed to generate QR code") }
     finally { setQrGenerating(false) }
   }
@@ -372,15 +460,37 @@ export default function SecureSharingPage() {
                 {selectedFile && (
                   <div className="p-4 rounded-xl border border-cyber-500/30 bg-cyber-500/5 space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-xl bg-cyber-500/10 border border-cyber-500/30 flex items-center justify-center shrink-0">
-                        {(() => {
-                          const IconComp = getFileIcon(selectedFile.name)
-                          return <IconComp className="h-6 w-6 text-cyber-400" />
-                        })()}
+                      {/* Thumbnail / icon — clickable for image preview */}
+                      <div
+                        className={`h-12 w-12 rounded-xl border border-cyber-500/30 flex items-center justify-center shrink-0 overflow-hidden transition-all ${
+                          imagePreviewUrl
+                            ? "cursor-pointer hover:ring-2 hover:ring-cyber-500/60 hover:scale-105 bg-black/20"
+                            : "bg-cyber-500/10"
+                        }`}
+                        onClick={() => imagePreviewUrl && setShowImagePreview(true)}
+                        title={imagePreviewUrl ? "Click to preview" : undefined}
+                      >
+                        {imagePreviewUrl ? (
+                          <div className="relative w-full h-full">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imagePreviewUrl} alt={selectedFile.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40">
+                              <ZoomIn className="h-4 w-4 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          (() => {
+                            const IconComp = getFileIcon(selectedFile.name)
+                            return <IconComp className="h-6 w-6 text-cyber-400" />
+                          })()
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold truncate">{selectedFile.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatSize(selectedFile.size)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatSize(selectedFile.size)}
+                          {imagePreviewUrl && <span className="ml-2 text-cyber-400/70 cursor-pointer hover:text-cyber-400 transition-colors" onClick={() => setShowImagePreview(true)}><ZoomIn className="inline h-3 w-3 mr-0.5" />Preview</span>}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="success" className="shrink-0">Ready</Badge>
@@ -393,9 +503,10 @@ export default function SecureSharingPage() {
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Size usage</span>
-                        <span>{((selectedFile.size / (500 * 1024 * 1024)) * 100).toFixed(1)}% of 500MB</span>
+                        <span>{formatSize(selectedFile.size)} ({formatSizeUsage(selectedFile.size)} of 500MB)</span>
                       </div>
-                      <Progress value={(selectedFile.size / (500 * 1024 * 1024)) * 100} className="h-1.5" />
+                      {/* Clamp minimum progress bar to 0.5 so it's always visible */}
+                      <Progress value={Math.max(0.5, (selectedFile.size / (500 * 1024 * 1024)) * 100)} className="h-1.5" />
                     </div>
                   </div>
                 )}
@@ -537,9 +648,19 @@ export default function SecureSharingPage() {
                   <CardTitle>Shared Links ({links.length})</CardTitle>
                   <CardDescription>All your active secure file links</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchLinks} disabled={loading}>
-                  <Loader2 className={`mr-2 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllLinks}
+                  disabled={clearingLinks || links.length === 0}
+                  className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border-border/50 transition-colors"
+                >
+                  {clearingLinks ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" />
+                  )}
+                  Clear All
                 </Button>
               </div>
             </CardHeader>
@@ -626,10 +747,10 @@ export default function SecureSharingPage() {
                 <CardDescription>Encode any link into a scannable QR code</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {LAN_IP && (
+                {serverLanIp && (
                   <div className="p-3 rounded-xl bg-success/10 border border-success/20">
-                    <p className="text-xs font-semibold text-success mb-0.5">📡 LAN URL detected</p>
-                    <p className="text-xs text-muted-foreground">QR codes will use your LAN URL — scannable from any device on your network</p>
+                    <p className="text-xs font-semibold text-success mb-0.5">📡 LAN IP detected: {serverLanIp}</p>
+                    <p className="text-xs text-muted-foreground">QR codes will auto-resolve <span className="font-mono">localhost</span> → <span className="font-mono text-success">{serverLanIp}</span> so phones can scan them</p>
                   </div>
                 )}
 
@@ -641,6 +762,29 @@ export default function SecureSharingPage() {
                     onChange={(e) => { setQrUrl(e.target.value); setQrDataUrl(null) }}
                     onKeyDown={(e) => e.key === "Enter" && generateQr()}
                   />
+                  {/* Warning: localhost URL won't work when scanned by a phone */}
+                  {qrUrl && urlHasLocalhost(qrUrl) && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <span className="text-amber-400 text-sm leading-none mt-0.5">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-amber-400">Localhost URL detected</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {serverLanIp
+                            ? <>Will auto-convert to <span className="font-mono text-success">{serverLanIp}</span> so your phone can scan it.</>
+                            : "This won't work when scanned by another device. Use your machine's IP address instead."
+                          }
+                        </p>
+                        {serverLanIp && (
+                          <button
+                            className="mt-1.5 text-xs font-semibold text-cyber-400 hover:text-cyber-300 transition-colors"
+                            onClick={() => { setQrUrl(resolveUrlForQr(qrUrl, serverLanIp)); setQrDataUrl(null) }}
+                          >
+                            → Fix URL now ({serverLanIp})
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {links.length > 0 && (
@@ -648,7 +792,11 @@ export default function SecureSharingPage() {
                     <label className="text-xs font-semibold text-muted-foreground">Recent Links</label>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {links.slice(0, 5).map(l => {
-                        const displayUrl = LAN_IP ? toLanUrl(l.url) : l.url
+                        // Prefer serverLanIp resolution, then LAN_IP env var, else raw URL
+                        const rawUrl = cleanLinkUrl(l.url)
+                        const displayUrl = serverLanIp
+                          ? resolveUrlForQr(rawUrl, serverLanIp)
+                          : LAN_IP ? toLanUrl(rawUrl) : rawUrl
                         return (
                           <button
                             key={l.id}
@@ -656,7 +804,7 @@ export default function SecureSharingPage() {
                             onClick={() => { setQrUrl(displayUrl); setQrDataUrl(null) }}
                           >
                             {displayUrl}
-                            {LAN_IP && <span className="ml-2 text-[10px] text-success/60">(LAN)</span>}
+                            {(serverLanIp || LAN_IP) && <span className="ml-2 text-[10px] text-success/60">(LAN ✓)</span>}
                           </button>
                         )
                       })}
@@ -777,6 +925,49 @@ export default function SecureSharingPage() {
           maxDownloads={shareResult.maxDownloads}
           expiresAt={shareResult.expiresAt}
         />
+      )}
+
+      {/* Image Preview Modal */}
+      {showImagePreview && imagePreviewUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowImagePreview(false)}
+        >
+          <div
+            className="relative max-w-[90vw] max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl border border-cyber-500/30 bg-black/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-black/70 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-cyber-400" />
+                <span className="text-sm font-semibold text-white truncate max-w-[280px]">
+                  {selectedFile?.name}
+                </span>
+                {selectedFile && (
+                  <span className="text-xs text-white/50 shrink-0">{formatSize(selectedFile.size)}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowImagePreview(false)}
+                className="ml-4 text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Image */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagePreviewUrl}
+              alt={selectedFile?.name || "Preview"}
+              className="block max-w-[85vw] max-h-[80vh] object-contain"
+            />
+            {/* Footer hint */}
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent py-3 px-4 flex justify-center">
+              <span className="text-xs text-white/50">Click outside or ✕ to close</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

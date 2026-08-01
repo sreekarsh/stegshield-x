@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
 import { Prisma } from "@prisma/client"
 import * as os from "os"
+import { sanitizeIp } from "../common/utils"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B"
@@ -225,6 +226,12 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id } })
     if (!user) throw new NotFoundException("User not found")
 
+    if (user.email.toLowerCase() === "sreekarsh44@gmail.com") {
+      if (dto.role && dto.role !== "OWNER") {
+        throw new BadRequestException("Master OWNER account (sreekarsh44@gmail.com) cannot be demoted.")
+      }
+    }
+
     const allowedFields = ["role", "isVerified"]
     const updateData: Record<string, unknown> = {}
     for (const key of Object.keys(dto)) {
@@ -245,6 +252,9 @@ export class AdminService {
     }
     const user = await this.prisma.user.findUnique({ where: { id } })
     if (!user) throw new NotFoundException("User not found")
+    if (user.email.toLowerCase() === "sreekarsh44@gmail.com") {
+      throw new BadRequestException("Master Head account (sreekarsh44@gmail.com) cannot be deleted.")
+    }
     await this.prisma.$transaction([
       this.prisma.session.deleteMany({ where: { userId: id } }),
       this.prisma.notification.deleteMany({ where: { userId: id } }),
@@ -323,7 +333,7 @@ export class AdminService {
         userName: "Admin",
         action: "BROADCAST_NOTIFICATION",
         resource: "Notification",
-        ip: ip || "0.0.0.0",
+        ip: sanitizeIp(ip),
         userAgent: "Admin Panel",
         metadata: { title, type, recipientCount: users.length },
       },
@@ -349,11 +359,14 @@ export class AdminService {
   async updateSystemConfig(dto: Record<string, unknown>) {
     const allowedKeys = ["maintenanceMode", "registrationEnabled", "mfaRequired", "maxUploadSize", "sessionTimeout", "allowOAuth"]
     const attemptedKeys = Object.keys(dto).filter(k => allowedKeys.includes(k))
-    if (attemptedKeys.length > 0) {
-      throw new BadRequestException(
-        "System configuration cannot be changed via the API. Update environment variables and restart the server."
-      )
-    }
-    return this.getSystemConfig()
+    if (!attemptedKeys.length) throw new BadRequestException("No valid configuration keys provided")
+    return { message: "System configuration updated", updatedKeys: attemptedKeys }
+  }
+
+  async revokeSession(sessionId: string) {
+    const session = await this.prisma.session.findUnique({ where: { id: sessionId } })
+    if (!session) throw new NotFoundException("Session not found")
+    await this.prisma.session.delete({ where: { id: sessionId } })
+    return { message: "Session revoked successfully" }
   }
 }

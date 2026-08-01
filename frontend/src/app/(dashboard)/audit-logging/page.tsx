@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState, useMemo, useCallback } from "react"
 import {
@@ -46,6 +46,83 @@ const actionTypes = [
   { value: "admin.broadcast", label: "Broadcast" },
 ]
 
+function generateAuditPdfReport(logs: AuditLog[]) {
+  const printWindow = window.open("", "_blank")
+  if (!printWindow) return
+
+  const rowsHtml = logs.map(l => `
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #1e293b;font-weight:600;color:#f1f5f9;">${l.userName}</td>
+      <td style="padding:10px;border-bottom:1px solid #1e293b;"><span style="background:rgba(124,58,237,0.25);color:#c084fc;padding:3px 8px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:600;border:1px solid rgba(192,132,252,0.4);">${l.action}</span></td>
+      <td style="padding:10px;border-bottom:1px solid #1e293b;color:#94a3b8;">${l.resource}${l.resourceId ? ` #${l.resourceId.slice(0, 8)}` : ""}</td>
+      <td style="padding:10px;border-bottom:1px solid #1e293b;font-family:monospace;color:#38bdf8;font-weight:600;">${l.ip}</td>
+      <td style="padding:10px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:11px;">${new Date(l.createdAt).toLocaleString()}</td>
+    </tr>
+  `).join("")
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>StegShield X — Audit Log Forensic Report</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0f19; color: #f8fafc; margin: 0; padding: 32px; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #38bdf8; padding-bottom: 20px; margin-bottom: 24px; }
+          .brand { display: flex; align-items: center; gap: 12px; }
+          .brand-icon { font-size: 28px; }
+          .title { font-size: 24px; font-weight: 800; background: linear-gradient(135deg, #38bdf8, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+          .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; font-weight: 500; }
+          .meta { font-size: 11px; color: #64748b; text-align: right; line-height: 1.6; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+          th { text-align: left; padding: 12px 10px; background: #1e293b; color: #38bdf8; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #334155; }
+          .footer { margin-top: 32px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b; padding-top: 16px; }
+          @media print {
+            body { background: #000 !important; color: #fff !important; }
+            th { background: #111 !important; color: #38bdf8 !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">
+            <span class="brand-icon">🛡️</span>
+            <div>
+              <div class="title">StegShield X — Forensic Audit Trail Report</div>
+              <div class="subtitle">Complete Log Verification & Chain of Custody Audit</div>
+            </div>
+          </div>
+          <div class="meta">
+            <div><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+            <div><strong>Total Log Entries:</strong> ${logs.length}</div>
+            <div><strong>Security Level:</strong> RESTRICTED / CLASSIFIED</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Action</th>
+              <th>Resource</th>
+              <th>IP Address</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="footer">
+          StegShield X Cybersecurity & Digital Forensics Platform — Official System Audit Trail
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+    </html>
+  `)
+  printWindow.document.close()
+}
+
 export default function AuditLoggingPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -58,7 +135,7 @@ export default function AuditLoggingPage() {
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv")
+  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "pdf">("csv")
   const [exporting, setExporting] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(false)
   const limit = 20
@@ -134,14 +211,18 @@ export default function AuditLoggingPage() {
         const a = document.createElement("a")
         a.href = url; a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`; a.click()
         URL.revokeObjectURL(url)
-      } else {
+        toast.success(`Exported ${filteredLogs.length} log entries to CSV`)
+      } else if (exportFormat === "json") {
         const blob = new Blob([JSON.stringify(filteredLogs, null, 2)], { type: "application/json" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url; a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.json`; a.click()
         URL.revokeObjectURL(url)
+        toast.success(`Exported ${filteredLogs.length} log entries to JSON`)
+      } else if (exportFormat === "pdf") {
+        generateAuditPdfReport(filteredLogs)
+        toast.success(`Generated PDF report with ${filteredLogs.length} log entries`)
       }
-      toast.success(`Exported ${filteredLogs.length} log entries`)
     } catch {
       toast.error("Failed to export logs")
     } finally {
@@ -167,7 +248,7 @@ export default function AuditLoggingPage() {
         title="Audit Logging"
         description="Complete audit trail of all security operations"
         action={{
-          label: exportFormat === "csv" ? "Export CSV" : "Export JSON",
+          label: exportFormat === "csv" ? "Export CSV" : exportFormat === "pdf" ? "Export PDF" : "Export JSON",
           icon: Download,
           onClick: exportLogs,
         }}
@@ -213,12 +294,13 @@ export default function AuditLoggingPage() {
                 <RefreshCw className={`h-4 w-4 ${autoRefresh ? "animate-spin" : ""}`} />
               </Button>
               <select
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-semibold uppercase tracking-wider text-cyan-300 border-cyan-500/30 bg-violet-950/20"
                 value={exportFormat}
-                onChange={(e) => setExportFormat(e.target.value as "csv" | "json")}
+                onChange={(e) => setExportFormat(e.target.value as "csv" | "json" | "pdf")}
               >
-                <option value="csv">CSV</option>
-                <option value="json">JSON</option>
+                <option value="csv" className="bg-background text-foreground">CSV</option>
+                <option value="pdf" className="bg-background text-foreground">PDF</option>
+                <option value="json" className="bg-background text-foreground">JSON</option>
               </select>
               <span className="text-xs text-muted-foreground whitespace-nowrap">{total} entries</span>
             </div>

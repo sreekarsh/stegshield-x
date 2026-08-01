@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from "uuid"
 const reportDir = join(process.cwd(), "uploads", "reports")
 
 const VALID_TYPES = ["security-audit", "activity-log", "evidence-summary", "threat-report", "compliance"]
-const VALID_FORMATS = ["json", "html", "csv"]
+const VALID_FORMATS = ["json", "html", "csv", "pdf"]
 
 function ensureDir() {
   if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true })
@@ -46,7 +46,7 @@ export class ReportsService {
     const name = (dto.name || `${dto.type}-${new Date().toISOString().slice(0, 10)}`).trim()
     const data = await this.buildReportData(userId, dto.type, dto.dateFrom, dto.dateTo)
 
-    const ext = dto.format === "csv" ? "csv" : dto.format === "html" ? "html" : "json"
+    const ext = dto.format === "csv" ? "csv" : dto.format === "pdf" ? "pdf" : dto.format === "html" ? "html" : "json"
     const id = uuidv4()
     const fileName = `${id}.${ext}`
     const filePath = join(reportDir, fileName)
@@ -96,6 +96,7 @@ export class ReportsService {
 
     const contentType =
       report.format === "csv" ? "text/csv" :
+      report.format === "pdf" ? "application/pdf" :
       report.format === "html" ? "text/html" :
       "application/json"
 
@@ -424,7 +425,7 @@ export class ReportsService {
 
   private formatContent(format: string, name: string, data: any): string {
     if (format === "csv") return this.toCSV(data)
-    if (format === "html") return this.toHTML(name, data)
+    if (format === "html" || format === "pdf") return this.toHTML(name, data)
     return JSON.stringify(data, null, 2)
   }
 
