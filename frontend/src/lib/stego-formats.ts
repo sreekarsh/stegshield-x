@@ -128,6 +128,67 @@ export function computeLsbRatio(data: Uint8Array): number {
   return ones / data.length
 }
 
+export function computeLsbEntropy(data: Uint8Array, from: number, to: number): number {
+  if (to <= from) return 1
+  let ones = 0
+  const n = to - from
+  for (let i = from; i < to; i++) {
+    if (data[i] & 1) ones++
+  }
+  const p = ones / n
+  if (p <= 0 || p >= 1) return 0
+  return -(p * Math.log2(p) + (1 - p) * Math.log2(1 - p))
+}
+
+export function computeLsbStreamStats(data: Uint8Array, prefixRatio = 0.1) {
+  const split = Math.min(data.length, Math.floor(data.length * prefixRatio))
+  if (split < 2048 || data.length - split < 2048) {
+    return { entropyDrop: 0, pairBias: 0 }
+  }
+  const prefixEntropy = computeLsbEntropy(data, 0, split)
+  const tailEntropy = computeLsbEntropy(data, split, data.length)
+  const entropyDrop = Math.max(0, tailEntropy - prefixEntropy)
+  const blockSize = 1024
+  const pairMean = (from: number, to: number) => {
+    const ratios: number[] = []
+    for (let b = Math.floor(from / blockSize); b * blockSize + blockSize <= to; b++) {
+      const even = new Array(128).fill(0)
+      const odd = new Array(128).fill(0)
+      for (let i = b * blockSize; i < b * blockSize + blockSize; i++) {
+        const v = data[i]
+        const pof = v >> 1
+        if (pof < 128) {
+          if (v % 2 === 0) even[pof]++
+          else odd[pof]++
+        }
+      }
+      let chi = 0
+      let df = 0
+      for (let k = 0; k < 128; k++) {
+        const sum = even[k] + odd[k]
+        if (sum >= 8) {
+          chi += (even[k] - sum / 2) ** 2 / (sum / 2)
+          df++
+        }
+      }
+      if (df >= 30) ratios.push(chi / df)
+    }
+    return ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 1
+  }
+  const prefixMean = pairMean(0, split)
+  const tailMean = pairMean(split, data.length)
+  return { entropyDrop, pairBias: Math.abs(prefixMean - tailMean) }
+}
+
+export function rgbOnlyFromRgba(rgba: Uint8Array): Uint8Array {
+  const rgb = new Uint8Array(Math.floor(rgba.length * 3 / 4))
+  let j = 0
+  for (let i = 0; i < rgba.length; i++) {
+    if (i % 4 !== 3) rgb[j++] = rgba[i]
+  }
+  return rgb
+}
+
 export function computeLsbCapacity(dataLength: number, isImage: boolean): number {
   const usable = isImage ? Math.floor(dataLength * 3 / 4) : dataLength
   const encryptionOverhead = 36
@@ -141,26 +202,29 @@ export function computeChiSquare(data: Uint8Array): number {
   const odd = new Array(pairsOfValues).fill(0)
   const sampleLimit = Math.min(data.length, 500000)
   const step = Math.max(2, Math.floor(data.length / 50000))
-  for (let i = 0; i < sampleLimit; i += step * 2) {
-    const idx = i % 2 === 0 ? i : i - 1
-    if (idx + 1 >= data.length) break
-    const val = data[idx]
+  let total = 0
+  for (let i = 0; i < sampleLimit && i + 1 < data.length; i += step * 2) {
+    const val = data[i]
     const pof = val >> 1
     if (pof < pairsOfValues) {
       if (val % 2 === 0) even[pof]++
       else odd[pof]++
+      total++
     }
   }
+  if (total < 256) return 0
   let chiSquare = 0
+  let df = 0
   for (let i = 0; i < pairsOfValues; i++) {
-    const expected = (even[i] + odd[i]) / 2
-    if (expected > 0) {
-      chiSquare += (even[i] - expected) ** 2 / expected
+    const sum = even[i] + odd[i]
+    if (sum > 0) {
+      chiSquare += (even[i] - sum / 2) ** 2 / (sum / 2)
+      df++
     }
   }
-  const degreesOfFreedom = pairsOfValues - 1
-  const pValue = Math.min(1, chiSquare / (degreesOfFreedom * 2))
-  return 1 - pValue
+  if (df === 0) return 0
+  const ratio = chiSquare / df
+  return Math.min(1, Math.max(0, (ratio - 1.2) / 4))
 }
 
 export function detectAppendMarker(data: Uint8Array): { present: boolean; trailingBytes: number } {

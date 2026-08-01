@@ -230,6 +230,7 @@ export interface ContactRequest {
   toUserId: string
   toUserName: string
   toUserEmail: string
+  avatar?: string | null
   status: "pending" | "accepted" | "rejected"
   createdAt: string
 }

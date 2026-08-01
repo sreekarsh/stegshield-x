@@ -12,10 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useMessageStore, DEMO_USER_DETAILS } from "@/store/useMessageStore"
 import { useAuthStore } from "@/store/useAuthStore"
 import { useDebounce } from "@/hooks/useDebounce"
+import { getAvatarUrl } from "@/lib/utils"
 import { UserProfileModal, type UserProfileData } from "@/components/UserProfileModal"
 import toast from "react-hot-toast"
 
@@ -515,6 +516,7 @@ export default function SecureMessagingPage() {
                           }}
                           title="Touch to view profile details"
                         >
+                          <AvatarImage src={getAvatarUrl(contact.avatar)} alt={contact.name} />
                           <AvatarFallback className="bg-cyber-500/20 text-cyber-400">
                             {contact.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -601,6 +603,7 @@ export default function SecureMessagingPage() {
                               onClick={() => openUserProfile(u)}
                               title="Touch to view profile details"
                             >
+                              <AvatarImage src={getAvatarUrl(u.avatar)} alt={u.name} />
                               <AvatarFallback className="bg-cyber-500/20 text-cyber-400">
                                 {u.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                               </AvatarFallback>
@@ -664,6 +667,7 @@ export default function SecureMessagingPage() {
                       {pendingRequests.map((req) => (
                         <div key={req.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
                           <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarImage src={getAvatarUrl(req.avatar ?? DEMO_USER_DETAILS[req.fromUserId]?.avatar)} alt={req.fromUserName} />
                             <AvatarFallback className="bg-cyber-500/20 text-cyber-400">
                               {req.fromUserName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                             </AvatarFallback>
@@ -713,6 +717,7 @@ export default function SecureMessagingPage() {
                       {sentRequests.map((req) => (
                         <div key={req.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/20">
                           <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarImage src={getAvatarUrl(req.avatar ?? DEMO_USER_DETAILS[req.toUserId]?.avatar)} alt={req.toUserName} />
                             <AvatarFallback className="bg-muted text-muted-foreground">
                               {req.toUserName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                             </AvatarFallback>
@@ -790,6 +795,7 @@ export default function SecureMessagingPage() {
                       title="Touch to view profile details"
                     >
                       <Avatar className="h-9 w-9 ring-2 ring-cyber-500/20 group-hover/profile:ring-cyber-500/60 transition-all">
+                        <AvatarImage src={getAvatarUrl(selectedContact?.avatar)} alt={selectedContact?.name} />
                         <AvatarFallback className="bg-cyber-500/20 text-cyber-400 text-xs font-bold">
                           {selectedContact?.name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                         </AvatarFallback>

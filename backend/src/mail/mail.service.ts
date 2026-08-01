@@ -4,6 +4,7 @@ import * as nodemailer from "nodemailer"
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter | null = null
+  private securityContact = process.env.SECURITY_CONTACT_EMAIL || "security@stegshield.com"
 
   constructor() {
     const host = process.env.SMTP_HOST
@@ -107,7 +108,7 @@ export class MailService {
       <tr><td style="border:1px solid #e2e8f0;font-size:13px;color:#64748b">Time</td><td style="border:1px solid #e2e8f0;font-size:14px;color:#0f172a">${new Date().toLocaleString()}</td></tr>
     </table>
     <p style="font-size:14px;color:#64748b;line-height:1.6;margin:16px 0 0">
-      If you did not perform this action, change your password immediately and contact support at <a href="mailto:security@stegshield.com" style="color:#6366f1">security@stegshield.com</a>.
+      If you did not perform this action, change your password immediately and contact support at <a href="mailto:${this.securityContact}" style="color:#6366f1">${this.securityContact}</a>.
     </p>
   </td></tr>
   <tr><td style="padding:16px 32px 32px;border-top:1px solid #f1f5f9">
@@ -118,7 +119,7 @@ export class MailService {
 </body>
 </html>`
 
-    const text = `SECURITY ALERT — Panic Mode Triggered\n\nAction: ${label}\nIP: ${ip}\nTime: ${new Date().toLocaleString()}\n\nIf you did not perform this action, change your password immediately and contact security@stegshield.com.`
+    const text = `SECURITY ALERT — Panic Mode Triggered\n\nAction: ${label}\nIP: ${ip}\nTime: ${new Date().toLocaleString()}\n\nIf you did not perform this action, change your password immediately and contact ${this.securityContact}.`
 
     try {
       await this.transporter.sendMail({

@@ -81,6 +81,13 @@ export default function PanicModePage() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [panicToken, setPanicToken] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<ActionConfig | null>(null)
+  const [supportContact, setSupportContact] = useState("security@stegshield.com")
+
+  useEffect(() => {
+    api.get<{ email: string }>("/panic/support-contact")
+      .then((res) => { if (res?.email) setSupportContact(res.email) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     return () => { mountedRef.current = false }
@@ -272,7 +279,7 @@ export default function PanicModePage() {
               <Button variant="outline" className="w-full justify-start" onClick={() => router.push("/reports")}>
                 <Shield className="mr-2 h-4 w-4" /> Generate Security Report
               </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => window.open("mailto:security@stegshield.com?subject=Security%20Incident%20Report", "_blank")}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => window.open(`mailto:${supportContact}?subject=${encodeURIComponent("Security Incident Report — Panic Mode")}`, "_blank")}>
                 <ExternalLink className="mr-2 h-4 w-4" /> Contact Security Team
               </Button>
             </CardContent>

@@ -20,6 +20,8 @@ import {
   computeLsbRatio,
   computeLsbCapacity,
   computeChiSquare,
+  computeLsbStreamStats,
+  rgbOnlyFromRgba,
   detectAppendMarker,
   imageToPixels,
   canUseSpatialLsb,
@@ -281,15 +283,34 @@ export default function SteganographyPage() {
       await yieldToMain()
       const entropy = computeEntropy(pixelData)
       await yieldToMain()
-      const lsbRatio = computeLsbRatio(pixelData)
-      const lsbDeviation = Math.abs(lsbRatio - 0.5)
-      await yieldToMain()
-      const chiSquare = computeChiSquare(pixelData)
-      await yieldToMain()
-      const stegoProbability = Math.min(1, (lsbDeviation * 4 + chiSquare * 0.6) / 2)
+      let lsbRatio = 0.5
+      let lsbDeviation = 0
+      let chiSquare = 0
+      let entropyDrop = 0
+      let pairBias = 0
+      if (canSpatial) {
+        const spatialData = format === "WAV" ? pixelData : rgbOnlyFromRgba(pixelData)
+        lsbRatio = computeLsbRatio(spatialData)
+        lsbDeviation = Math.abs(lsbRatio - 0.5)
+        await yieldToMain()
+        chiSquare = computeChiSquare(spatialData)
+        await yieldToMain()
+        const stream = computeLsbStreamStats(spatialData)
+        entropyDrop = stream.entropyDrop
+        pairBias = stream.pairBias
+        await yieldToMain()
+      }
       const capacity = computeLsbCapacity(pixelData.length, canSpatial)
       const marker = detectAppendMarker(raw)
       const fileSize = raw.length
+
+      const devScore = Math.min(1, Math.max(0, (lsbDeviation - 0.06) / 0.25))
+      const dropScore = Math.min(1, Math.max(0, (entropyDrop - 0.004) / 0.02))
+      const pairScore = Math.min(1, Math.max(0, (pairBias - 0.06) / 0.25))
+      const spatialProb = canSpatial
+        ? Math.min(1, Math.max(0.25 * devScore, 0.55 * dropScore + 0.45 * pairScore))
+        : 0
+      const stegoProbability = Math.round((marker.present ? Math.max(spatialProb, 0.9) : spatialProb) * 100) / 100
 
       setAnalysisResult({
         format,
@@ -622,18 +643,18 @@ export default function SteganographyPage() {
                 <div className="space-y-6 pt-2">
                   {/* Modern Threat Summary Header Card */}
                   <div className={`p-5 rounded-xl border transition-all ${
-                    analysisResult.stegoProbability > 0.5 || analysisResult.hasAppendMarker
+                    analysisResult.stegoProbability > 0.6 || analysisResult.hasAppendMarker
                       ? "bg-destructive/10 border-destructive/40"
-                      : analysisResult.stegoProbability > 0.3
+                      : analysisResult.stegoProbability > 0.35
                       ? "bg-amber-500/10 border-amber-500/40"
                       : "bg-emerald-500/10 border-emerald-500/40"
                   }`}>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <div className={`p-3 rounded-xl ${
-                          analysisResult.stegoProbability > 0.5 || analysisResult.hasAppendMarker
+                          analysisResult.stegoProbability > 0.6 || analysisResult.hasAppendMarker
                             ? "bg-destructive/20 text-destructive"
-                            : analysisResult.stegoProbability > 0.3
+                            : analysisResult.stegoProbability > 0.35
                             ? "bg-amber-500/20 text-amber-400"
                             : "bg-emerald-500/20 text-emerald-400"
                         }`}>
@@ -642,14 +663,14 @@ export default function SteganographyPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-base font-bold">
-                              {analysisResult.stegoProbability > 0.5
+                              {analysisResult.stegoProbability > 0.6
                                 ? "High Steganographic Risk"
-                                : analysisResult.stegoProbability > 0.3
+                                : analysisResult.stegoProbability > 0.35
                                 ? "Suspicious Anomalies Detected"
                                 : "Carrier Clean / Normal"}
                             </h3>
                             <Badge variant={
-                              analysisResult.stegoProbability > 0.5 ? "destructive" : analysisResult.stegoProbability > 0.3 ? "warning" : "success"
+                              analysisResult.stegoProbability > 0.6 ? "destructive" : analysisResult.stegoProbability > 0.35 ? "warning" : "success"
                             }>
                               {analysisResult.format}
                             </Badge>
@@ -664,7 +685,7 @@ export default function SteganographyPage() {
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground font-medium">Stego Probability</p>
                           <p className={`text-2xl font-black tabular-nums ${
-                            analysisResult.stegoProbability > 0.5 ? "text-destructive" : analysisResult.stegoProbability > 0.3 ? "text-amber-400" : "text-emerald-400"
+                            analysisResult.stegoProbability > 0.6 ? "text-destructive" : analysisResult.stegoProbability > 0.35 ? "text-amber-400" : "text-emerald-400"
                           }`}>
                             {(analysisResult.stegoProbability * 100).toFixed(0)}%
                           </p>
@@ -735,7 +756,7 @@ export default function SteganographyPage() {
                         <div>
                           <div className="flex items-baseline justify-between mb-1">
                             <span className={`text-2xl font-black tabular-nums ${
-                              analysisResult.lsbDeviation > 0.05 ? "text-amber-400" : "text-cyber-400"
+                              analysisResult.lsbDeviation > 0.06 ? "text-amber-400" : "text-cyber-400"
                             }`}>
                               {analysisResult.lsbPercent.toFixed(1)}%
                             </span>

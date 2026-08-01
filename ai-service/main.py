@@ -408,20 +408,25 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
         entropy = float(-np.sum(hist * np.log2(hist + 1e-10)))
 
     if is_compressed_format:
-        if entropy > 7.99:
+        structure_ok = True
+        if file_format == "png":
+            structure_ok = b"IEND\xaeB`\x82" in contents
+        elif file_format == "jpeg":
+            structure_ok = b"\xff\xd9" in contents
+        if entropy > 7.99 and not structure_ok:
             threat_factors += 10
             indicators.append({
                 "type": "max_entropy",
                 "severity": "medium",
-                "value": f"{entropy:.2f}",
-                "description": "Uniform maximum entropy detected in compressed container"
+                "value": f"{entropy:.4f}",
+                "description": f"Maximum entropy ({entropy:.4f}) in {file_format.upper()} container with missing EOF structure — possibly obfuscated payload"
             })
         else:
             indicators.append({
                 "type": "normal_compressed_entropy",
                 "severity": "info",
-                "value": f"{entropy:.2f}",
-                "description": f"Normal expected entropy ({entropy:.2f}) for {file_format.upper() if file_format else 'compressed'} format"
+                "value": f"{entropy:.4f}",
+                "description": f"Normal expected entropy ({entropy:.4f}) for {file_format.upper() if file_format else 'compressed'} format"
             })
     else:
         if entropy > 7.4:
@@ -429,7 +434,7 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
             indicators.append({
                 "type": "high_entropy",
                 "severity": "high",
-                "value": f"{entropy:.2f}",
+                "value": f"{entropy:.4f}",
                 "description": "High entropy in uncompressed file — likely encrypted or obfuscated payload"
             })
         elif entropy > 6.5:
@@ -437,7 +442,7 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
             indicators.append({
                 "type": "elevated_entropy",
                 "severity": "medium",
-                "value": f"{entropy:.2f}",
+                "value": f"{entropy:.4f}",
                 "description": "Elevated entropy for uncompressed data"
             })
 
@@ -445,7 +450,7 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
     executable_headers_found = scan_executable_headers(contents, file_format)
     executable_count = len(executable_headers_found)
     if executable_count > 0:
-        is_known_exec_ext = ext in {"exe", "dll", "elf", "so", "dylib", "bin", "sh", "bat", "cmd"}
+        is_known_exec_ext = ext in {"exe", "dll", "elf", "so", "dylib", "sh", "bat", "cmd"}
         if is_known_exec_ext:
             indicators.append({
                 "type": "valid_executable",
@@ -557,7 +562,7 @@ async def analyze_threat(file: UploadFile = File(...), auth=Depends(verify_auth)
         "filename": filename,
         "hash": file_hash,
         "size": size,
-        "entropy": round(entropy, 2),
+        "entropy": round(entropy, 4),
         "threat_score": threat_score,
         "threat_level": threat_level,
         "indicators": indicators,

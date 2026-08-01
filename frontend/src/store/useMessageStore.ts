@@ -69,16 +69,16 @@ interface SearchableUser {
 }
 
 export const DEMO_USER_DETAILS: Record<string, any> = {
-  "agent-1": { id: "agent-1", name: "Alex Mercer", email: "alex.mercer@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-01-15T08:00:00Z", department: "Cyber Forensics & Steganography", fingerprint: "SHA256:7F8A:3D9E:4B11:C20F:9A32" },
-  "agent-2": { id: "agent-2", name: "Sam Rivera", email: "sam.rivera@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-02-10T09:30:00Z", department: "Threat Intelligence & Tamper Analysis", fingerprint: "SHA256:8E1C:4A2D:9C33:B10E:7F44" },
-  "agent-3": { id: "agent-3", name: "Jordan Chase", email: "jordan.chase@shield.gov", role: "admin", isVerified: true, isMFAEnabled: true, createdAt: "2024-03-01T11:00:00Z", department: "Security Operations Center", fingerprint: "SHA256:9A4F:5B1E:1D22:E80A:3C55" },
-  "agent-4": { id: "agent-4", name: "Casey Morgan", email: "casey.morgan@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-03-12T14:20:00Z", department: "Digital Evidence Management", fingerprint: "SHA256:1C2B:3D4E:5F6A:7B8C:9D0E" },
-  "agent-5": { id: "agent-5", name: "Riley Quinn", email: "riley.quinn@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-05T16:45:00Z", department: "Cryptographic Analysis", fingerprint: "SHA256:2D3E:4F5A:6B7C:8D9E:0F1A" },
-  "agent-6": { id: "agent-6", name: "Taylor Reed", email: "taylor.reed@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-18T10:15:00Z", department: "Incident Response", fingerprint: "SHA256:3E4F:5A6B:7C8D:9E0F:1A2B" },
-  "agent-7": { id: "agent-7", name: "Morgan Blair", email: "morgan.blair@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-05-02T13:00:00Z", department: "Compliance & Audit Log", fingerprint: "SHA256:4F5A:6B7C:8D9E:0F1A:2B3C" },
-  "agent-8": { id: "agent-8", name: "Drew Harper", email: "drew.harper@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-05-20T08:30:00Z", department: "Malware & Deepfake Analysis", fingerprint: "SHA256:5A6B:7C8D:9E0F:1A2B:3C4D" },
-  "agent-9": { id: "agent-9", name: "Sydney Cole", email: "sydney.cole@shield.gov", role: "owner", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-01T09:00:00Z", department: "Chief Information Security Office", fingerprint: "SHA256:6B7C:8D9E:0F1A:2B3C:4D5E" },
-  "agent-10": { id: "agent-10", name: "Jamie Wells", email: "jamie.wells@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-15T15:10:00Z", department: "Network Security & Proxy", fingerprint: "SHA256:7C8D:9E0F:1A2B:3C4D:5E6F" },
+  "agent-1": { id: "agent-1", name: "Alex Mercer", email: "alex.mercer@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-01-15T08:00:00Z", department: "Cyber Forensics & Steganography", fingerprint: "SHA256:7F8A:3D9E:4B11:C20F:9A32", avatar: "https://i.pravatar.cc/150?img=11" },
+  "agent-2": { id: "agent-2", name: "Sam Rivera", email: "sam.rivera@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-02-10T09:30:00Z", department: "Threat Intelligence & Tamper Analysis", fingerprint: "SHA256:8E1C:4A2D:9C33:B10E:7F44", avatar: "https://i.pravatar.cc/150?img=12" },
+  "agent-3": { id: "agent-3", name: "Jordan Chase", email: "jordan.chase@shield.gov", role: "admin", isVerified: true, isMFAEnabled: true, createdAt: "2024-03-01T11:00:00Z", department: "Security Operations Center", fingerprint: "SHA256:9A4F:5B1E:1D22:E80A:3C55", avatar: "https://i.pravatar.cc/150?img=15" },
+  "agent-4": { id: "agent-4", name: "Casey Morgan", email: "casey.morgan@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-03-12T14:20:00Z", department: "Digital Evidence Management", fingerprint: "SHA256:1C2B:3D4E:5F6A:7B8C:9D0E", avatar: "https://i.pravatar.cc/150?img=47" },
+  "agent-5": { id: "agent-5", name: "Riley Quinn", email: "riley.quinn@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-05T16:45:00Z", department: "Cryptographic Analysis", fingerprint: "SHA256:2D3E:4F5A:6B7C:8D9E:0F1A", avatar: "https://i.pravatar.cc/150?img=32" },
+  "agent-6": { id: "agent-6", name: "Taylor Reed", email: "taylor.reed@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-04-18T10:15:00Z", department: "Incident Response", fingerprint: "SHA256:3E4F:5A6B:7C8D:9E0F:1A2B", avatar: "https://i.pravatar.cc/150?img=36" },
+  "agent-7": { id: "agent-7", name: "Morgan Blair", email: "morgan.blair@shield.gov", role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "2024-05-02T13:00:00Z", department: "Compliance & Audit Log", fingerprint: "SHA256:4F5A:6B7C:8D9E:0F1A:2B3C", avatar: "https://i.pravatar.cc/150?img=44" },
+  "agent-8": { id: "agent-8", name: "Drew Harper", email: "drew.harper@shield.gov", role: "investigator", isVerified: true, isMFAEnabled: true, createdAt: "2024-05-20T08:30:00Z", department: "Malware & Deepfake Analysis", fingerprint: "SHA256:5A6B:7C8D:9E0F:1A2B:3C4D", avatar: "https://i.pravatar.cc/150?img=56" },
+  "agent-9": { id: "agent-9", name: "Sydney Cole", email: "sydney.cole@shield.gov", role: "owner", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-01T09:00:00Z", department: "Chief Information Security Office", fingerprint: "SHA256:6B7C:8D9E:0F1A:2B3C:4D5E", avatar: "https://i.pravatar.cc/150?img=33" },
+  "agent-10": { id: "agent-10", name: "Jamie Wells", email: "jamie.wells@shield.gov", role: "editor", isVerified: true, isMFAEnabled: true, createdAt: "2024-06-15T15:10:00Z", department: "Network Security & Proxy", fingerprint: "SHA256:7C8D:9E0F:1A2B:3C4D:5E6F", avatar: "https://i.pravatar.cc/150?img=68" },
 }
 
 const DEMO_USERS = Object.values(DEMO_USER_DETAILS)
@@ -142,8 +142,8 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     const contacts = local.contacts.length > 0
       ? local.contacts
       : [
-          { id: "agent-1", name: "Alex Mercer", avatar: null },
-          { id: "agent-2", name: "Sam Rivera", avatar: null },
+          { id: "agent-1", name: "Alex Mercer", avatar: DEMO_USER_DETAILS["agent-1"].avatar },
+          { id: "agent-2", name: "Sam Rivera", avatar: DEMO_USER_DETAILS["agent-2"].avatar },
         ]
     if (local.contacts.length === 0) {
       await saveLocal({ contacts, messages: local.messages })
@@ -258,7 +258,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   },
 
   addContact: async (id: string, name: string) => {
-    const newContact: Contact = { id, name, avatar: null }
+    const newContact: Contact = { id, name, avatar: DEMO_USER_DETAILS[id]?.avatar || null }
     const local = await loadLocal()
     if (!local.contacts.some(c => c.id === id)) {
       local.contacts.push(newContact)
@@ -306,7 +306,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       if (seen.has(u.id)) continue
       seen.add(u.id)
       if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
-        results.push({ id: u.id, name: u.name, email: u.email, role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "", updatedAt: "" })
+        results.push({ id: u.id, name: u.name, email: u.email, avatar: u.avatar || null, role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "", updatedAt: "" })
       }
     }
     return results
@@ -326,6 +326,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       toUserId: userId,
       toUserName: name,
       toUserEmail: "",
+      avatar: DEMO_USER_DETAILS[userId]?.avatar || null,
       status: "pending",
       createdAt: new Date().toISOString(),
     }
@@ -346,7 +347,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       r.id === requestId ? { ...r, status: "accepted" as const } : r
     )
     await saveLocalRequests(updated)
-    const newContact: Contact = { id: req.fromUserId, name: req.fromUserName, avatar: null }
+    const newContact: Contact = { id: req.fromUserId, name: req.fromUserName, avatar: req.avatar || DEMO_USER_DETAILS[req.fromUserId]?.avatar || null }
     const data = await loadLocal()
     if (!data.contacts.some(c => c.id === newContact.id)) {
       data.contacts.push(newContact)
@@ -392,6 +393,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
           toUserId: myId,
           toUserName: "You",
           toUserEmail: "",
+          avatar: DEMO_USER_DETAILS["agent-3"].avatar,
           status: "pending",
           createdAt: new Date().toISOString(),
         },

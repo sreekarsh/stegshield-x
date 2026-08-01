@@ -126,13 +126,26 @@ function AnalysisCard({ analysis, type }: { analysis: AnalysisResult; type: "fil
   const threatVariant = threatLevel === "critical" || threatLevel === "high" ? "destructive"
     : threatLevel === "medium" ? "warning" : "success"
 
+  const compressedFormats = new Set(["png", "jpeg", "jpg", "webp", "gif", "tiff", "pdf", "zip", "rar", "gz", "mp4", "mkv", "riff"])
+  const isCompressed = !!analysis.file_format && compressedFormats.has(analysis.file_format)
+  const entropyColor = isCompressed ? "text-amber-400"
+    : (analysis.entropy || 0) > 7.5 ? "text-red-400" : "text-green-400"
+
   return (
     <div className="space-y-4">
       {/* Score ring header */}
       {(analysis.entropy !== undefined || analysis.threat_score !== undefined || analysis.tamper_probability !== undefined || analysis.stego_probability !== undefined || analysis.deepfake_probability !== undefined) && (
         <div className="flex flex-wrap items-center justify-center gap-6 py-4 bg-muted/20 rounded-2xl border border-border/30">
           {analysis.entropy !== undefined && (
-            <ScoreRing value={analysis.entropy} max={8} label="Entropy" color={analysis.entropy > 7.5 ? "text-red-400" : "text-green-400"} />
+            <div className="flex flex-col items-center gap-1">
+              <ScoreRing value={analysis.entropy} max={8} label="Entropy" color={entropyColor} />
+              <p className="font-mono text-[10px] text-muted-foreground">{analysis.entropy.toFixed(4)} bits/byte</p>
+              {isCompressed && (
+                <p className="text-[9px] text-muted-foreground text-center max-w-[7rem] leading-tight">
+                  ~max — expected for {analysis.file_format!.toUpperCase()}
+                </p>
+              )}
+            </div>
           )}
           {analysis.threat_score !== undefined && (
             <ScoreRing value={analysis.threat_score} max={100} label="Threat" color={analysis.threat_score > 50 ? "text-orange-400" : "text-green-400"} />
