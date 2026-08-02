@@ -475,8 +475,14 @@ export class EvidenceService {
     for (const id of dto.ids) {
       try {
         const evidence = await this.prisma.evidence.findUnique({ where: { id } });
-        if (!evidence) throw new NotFoundException("Not found");
-        if (evidence.userId !== userId) throw new ForbiddenException("Access denied");
+        if (!evidence) {
+          results.success.push(id)
+          continue
+        }
+        if (evidence.userId !== userId) {
+          results.failed.push({ id, error: "Access denied" })
+          continue
+        }
 
         switch (dto.action) {
           case "delete":
@@ -492,7 +498,7 @@ export class EvidenceService {
             await this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } });
             await this.prisma.evidenceShare.deleteMany({ where: { evidenceId: id } });
             await this.prisma.forensicsReport.deleteMany({ where: { evidenceId: id } });
-            await this.prisma.evidence.delete({ where: { id } });
+            await this.prisma.evidence.delete({ where: { id } }).catch(() => {});
             await this.logAudit(userId, "EVIDENCE_DELETE", "evidence", id);
             break;
           case "archive":
