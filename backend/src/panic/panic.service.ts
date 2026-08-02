@@ -65,7 +65,7 @@ export class PanicService {
         "warning",
       ).catch(() => {})
       if (!user?.email) return
-      await this.mail.sendPanicAlert({ to: user.email, userName: user.name || "User", action, ip: ip || "Unknown" })
+      this.mail.sendPanicAlert({ to: user.email, userName: user.name || "User", action, ip: ip || "Unknown" }).catch((err: any) => console.error("Panic email alert failed:", err))
     } catch (err) {
       console.error("Panic email alert failed:", err)
     }
@@ -73,12 +73,12 @@ export class PanicService {
 
   async contactSecurity(userId: string, message: string, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
-    await this.mail.sendSecurityReport({
+    this.mail.sendSecurityReport({
       fromEmail: user?.email || "unknown",
       userName: user?.name || "Unknown user",
       message,
       ip,
-    })
+    }).catch((err: any) => console.error("Security report email failed:", err))
     await this.audit(userId, "panic.contact_security", { messageLength: message.length }, ip)
     return { message: "Your report has been sent to the security team" }
   }

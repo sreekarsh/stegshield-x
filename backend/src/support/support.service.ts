@@ -12,18 +12,22 @@ export class SupportService {
 
   async contactSupport(userId: string, message: string, category?: string, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
-    await this.mail.sendSupportRequest({
-      fromEmail: user?.email || "unknown",
-      userName: user?.name || "Unknown user",
+    const fromEmail = user?.email || "unknown"
+    const userName = user?.name || "Unknown user"
+
+    this.mail.sendSupportRequest({
+      fromEmail,
+      userName,
       message,
       category,
       ip,
-    })
+    }).catch((err: any) => console.error("Failed to send support request email:", err))
+
     try {
       await this.prisma.auditLog.create({
         data: {
           userId,
-          userName: user?.name || "unknown",
+          userName,
           action: "support.contact",
           resource: "help",
           ip: sanitizeIp(ip),
