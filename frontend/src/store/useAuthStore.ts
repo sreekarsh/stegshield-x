@@ -28,82 +28,111 @@ async function handleResponse(response: Response) {
 
 let _refreshPromise: Promise<void> | null = null
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  accessToken: null,
-  isAuthenticated: false,
-  isLoading: true,
-  sessions: [],
+export const useAuthStore = create<AuthState>((set, get) => {
+  let initialAccessToken: string | null = null
+  let initialUser: User | null = null
+  if (typeof window !== "undefined") {
+    const storedToken = localStorage.getItem("stegshield_access_token")
+    const storedUser = localStorage.getItem("stegshield_user")
+    if (storedToken) initialAccessToken = storedToken
+    if (storedUser) {
+      try { initialUser = JSON.parse(storedUser) } catch {}
+    }
+  }
 
-  setUser: (user) =>
-    set({ user, isAuthenticated: !!user }),
+  return {
+    user: initialUser,
+    accessToken: initialAccessToken,
+    isAuthenticated: !!initialAccessToken,
+    isLoading: false,
+    sessions: [],
 
-  setSessions: (sessions) =>
-    set({ sessions }),
+    setUser: (user) =>
+      set({ user, isAuthenticated: !!user }),
 
-  setLoading: (isLoading) =>
-    set({ isLoading }),
+    setSessions: (sessions) =>
+      set({ sessions }),
 
-  login: async (email, password) => {
-    const response = await fetch(`${API}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-      credentials: "include",
-    })
-    const data = await handleResponse(response)
-    set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
-  },
+    setLoading: (isLoading) =>
+      set({ isLoading }),
 
-  register: async (email, password, name) => {
-    const response = await fetch(`${API}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
-      credentials: "include",
-    })
-    const data = await handleResponse(response)
-    set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
-  },
-
-  logout: async () => {
-    try {
-      await fetch(`${API}/auth/logout`, {
+    login: async (email, password) => {
+      const response = await fetch(`${API}/auth/login`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
         credentials: "include",
-        headers: { Authorization: `Bearer ${get().accessToken}` },
       })
-    } catch {}
-    set({ user: null, accessToken: null, isAuthenticated: false, sessions: [] })
-  },
+      const data = await handleResponse(response)
+      set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
+      if (typeof window !== "undefined") {
+        localStorage.setItem("stegshield_access_token", data.accessToken)
+        localStorage.setItem("stegshield_user", JSON.stringify(data.user))
+      }
+    },
 
-  refreshSession: async () => {
-    if (_refreshPromise) return _refreshPromise
-    _refreshPromise = (async () => {
+    register: async (email, password, name) => {
+      const response = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+        credentials: "include",
+      })
+      const data = await handleResponse(response)
+      set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
+      if (typeof window !== "undefined") {
+        localStorage.setItem("stegshield_access_token", data.accessToken)
+        localStorage.setItem("stegshield_user", JSON.stringify(data.user))
+      }
+    },
+
+    logout: async () => {
       try {
-        const response = await fetch(`${API}/auth/refresh`, {
+        await fetch(`${API}/auth/logout`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
           credentials: "include",
+          headers: { Authorization: `Bearer ${get().accessToken}` },
         })
-        if (response.ok) {
-          const data = await response.json()
-          if (data.accessToken) {
-            set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
+      } catch {}
+      set({ user: null, accessToken: null, isAuthenticated: false, sessions: [] })
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("stegshield_access_token")
+        localStorage.removeItem("stegshield_user")
+      }
+    },
+
+    refreshSession: async () => {
+      if (_refreshPromise) return _refreshPromise
+      _refreshPromise = (async () => {
+        try {
+          const response = await fetch(`${API}/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+            credentials: "include",
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.accessToken) {
+              set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
+              if (typeof window !== "undefined") {
+                localStorage.setItem("stegshield_access_token", data.accessToken)
+                if (data.user) localStorage.setItem("stegshield_user", JSON.stringify(data.user))
+              }
+            } else {
+              set({ user: null, accessToken: null, isAuthenticated: false })
+            }
           } else {
             set({ user: null, accessToken: null, isAuthenticated: false })
           }
-        } else {
+        } catch {
           set({ user: null, accessToken: null, isAuthenticated: false })
+        } finally {
+          set({ isLoading: false })
+          _refreshPromise = null
         }
-      } catch {
-        set({ user: null, accessToken: null, isAuthenticated: false })
-      } finally {
-        set({ isLoading: false })
-        _refreshPromise = null
-      }
-    })()
-    return _refreshPromise
-  },
-}))
+      })()
+      return _refreshPromise
+    },
+  }
+})
