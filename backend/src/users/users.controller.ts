@@ -1,8 +1,7 @@
 import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Req, Query, Param, UseInterceptors, UploadedFile, BadRequestException, Res, NotFoundException } from "@nestjs/common"
 import { FileInterceptor } from "@nestjs/platform-express"
-import { diskStorage } from "multer"
 import { extname, join, basename } from "path"
-import { existsSync, mkdirSync } from "fs"
+import { existsSync, mkdirSync, readFileSync } from "fs"
 import { Response } from "express"
 import { ApiTags, ApiBearerAuth, ApiConsumes } from "@nestjs/swagger"
 import { Role } from "@prisma/client"
@@ -51,8 +50,11 @@ export class UsersController {
     if (!file) {
       throw new BadRequestException("Image file is required")
     }
-    const avatarUrl = `/uploads/avatars/${file.filename}`
-    return this.usersService.update(req.user.id, { avatar: avatarUrl })
+    const mimeType = file.mimetype || "image/jpeg"
+    const buffer = readFileSync(file.path)
+    const base64 = buffer.toString("base64")
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    return this.usersService.update(req.user.id, { avatar: dataUrl })
   }
 
   @Get("avatar-file/:filename")
@@ -60,7 +62,7 @@ export class UsersController {
     const safeName = basename(filename)
     const filePath = join(process.cwd(), "uploads", "avatars", safeName)
     if (!existsSync(filePath)) {
-      throw new NotFoundException("Avatar file not found")
+      return res.status(204).send()
     }
     return res.sendFile(filePath)
   }
