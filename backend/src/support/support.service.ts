@@ -1,15 +1,17 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
 
 @Injectable()
 export class SupportService {
+  private readonly logger = new Logger(SupportService.name)
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
   ) {}
 
   async contactSupport(userId: string, message: string, category?: string, ip?: string) {
+    this.logger.log(`contactSupport called userId=${userId} messageLength=${message.length} category=${category}`)
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
     const fromEmail = user?.email || "unknown"
     const userName = user?.name || "Unknown user"
