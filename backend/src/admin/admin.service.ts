@@ -161,7 +161,7 @@ export class AdminService {
     return {
       period: effectivePeriod,
       newUsers, newMessages, newEvidence, newSessions,
-      topActions: auditActions.map((a) => ({ action: a.action, count: a._count })),
+      topActions: auditActions.map((a) => ({ action: a.action, count: (a as any)._count?.action || 0 })),
       activityTimeline,
     }
   }
