@@ -13,8 +13,6 @@ import {
   Body,
   BadRequestException,
   Res,
-  HttpCode,
-  HttpStatus,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -166,9 +164,9 @@ export class EvidenceController {
 
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Req() req: any, @Param("id") id: string) {
     const result = await this.evidenceService.bulkOperation(req.user.id, { ids: [id], action: "delete" });
     if (result.failed.length) throw new BadRequestException(result.failed[0].error);
+    return { success: true }
   }
 }
