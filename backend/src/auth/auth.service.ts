@@ -364,21 +364,21 @@ export class AuthService {
 
   async forgotPassword(email: string): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({ where: { email } })
-    if (!user) {
-      return { message: "If an account with that email exists, a reset link has been sent" }
+    
+    if (user) {
+      const resetToken = this.resetJwtService.sign({
+        sub: user.id,
+        email: user.email,
+        version: user.resetTokenVersion,
+      })
+      const appUrl = process.env.APP_URL || "http://localhost:3000"
+
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_PASSWORD_FORGOT, "user", { email })
+
+      await this.mail.sendPasswordReset(email, resetToken, appUrl)
+    } else {
+      await this.mail.sendPasswordResetUnknown(email)
     }
-
-    const resetToken = this.resetJwtService.sign({
-      sub: user.id,
-      email: user.email,
-      version: user.resetTokenVersion,
-    })
-    const appUrl = process.env.APP_URL || "http://localhost:3000"
-    const autoResetUrl = `${appUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
-
-    await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_PASSWORD_FORGOT, "user", { email })
-
-    await this.mail.sendPasswordReset(email, resetToken, appUrl)
 
     return {
       message: "If an account with that email exists, a password reset link has been sent to your email",
