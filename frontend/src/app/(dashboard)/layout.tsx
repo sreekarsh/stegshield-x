@@ -4,12 +4,16 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import dynamic from "next/dynamic"
 import { useUIStore } from "@/store/useUIStore"
-import { useAuthStore } from "@/store/useAuthStore"
 import { PanicBanner } from "@/components/layout/panic-banner"
 
 const Sidebar = dynamic(() => import("@/components/layout/sidebar").then((m) => ({ default: m.Sidebar })), { ssr: false })
 const Header = dynamic(() => import("@/components/layout/header").then((m) => ({ default: m.Header })), { ssr: false })
 const CommandPalette = dynamic(() => import("@/components/layout/command-palette").then((m) => ({ default: m.CommandPalette })), { ssr: false })
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem("stegshield_access_token")
+}
 
 export default function DashboardLayout({
   children,
@@ -17,7 +21,6 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
-  const accessToken = useAuthStore((s) => s.accessToken)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -33,11 +36,14 @@ export default function DashboardLayout({
   }, [router])
 
   useEffect(() => {
-    const hasToken = !!accessToken || typeof window !== "undefined" && !!localStorage.getItem("stegshield_access_token")
-    if (!hasToken && pathname !== "/login" && pathname !== "/register") {
+    const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/mfa"]
+    if (publicPaths.includes(pathname)) return
+
+    const hasToken = getStoredToken()
+    if (!hasToken) {
       router.replace("/login")
     }
-  }, [accessToken, router, pathname])
+  }, [router, pathname])
 
   return (
     <div className="min-h-screen bg-background">
