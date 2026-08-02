@@ -379,11 +379,6 @@ export class AuthService {
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_PASSWORD_FORGOT, "user", { email })
 
     await this.mail.sendPasswordReset(email, resetToken, appUrl)
-    } catch {
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[DEV] Password reset for ${email}:\nToken: ${resetToken}\nDesktop Link: ${autoResetUrl}\nMobile Link: ${mobileAutoResetUrl}`)
-      }
-    }
 
     return {
       message: "If an account with that email exists, a password reset link has been sent to your email",

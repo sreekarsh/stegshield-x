@@ -38,18 +38,18 @@ export default function ForgotPasswordPage() {
             <span className="text-xl font-bold bg-gradient-to-r from-cyber-500 to-cyan-400 bg-clip-text text-transparent">StegShield X</span>
           </Link>
           <h1 className="text-2xl font-bold mb-2">Forgot Password</h1>
-          <p className="text-muted-foreground">Enter your email and we&apos;ll send you a reset link</p>
+          <p className="text-muted-foreground">Enter your email and an admin will send you a reset token</p>
         </div>
 
         <Card className="glass-card">
           <CardContent className="p-6">
             {sent ? (
-              <div className="text-center py-4 space-y-4">
-                <Mail className="h-12 w-12 text-cyber-400 mx-auto mb-2" />
-                <h2 className="text-lg font-semibold">Check Your Email</h2>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  If an account exists for <strong className="text-foreground">{email}</strong>, a password reset security token has been sent to your email inbox.
-                </p>
+                <div className="text-center py-4 space-y-4">
+                  <Mail className="h-12 w-12 text-cyber-400 mx-auto mb-2" />
+                  <h2 className="text-lg font-semibold">Admin Notified</h2>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    An admin has been notified for <strong className="text-foreground">{email}</strong>. You will receive the reset token via email shortly.
+                  </p>
 
                 <div className="pt-2 space-y-3">
                   <Link href={`/reset-password?email=${encodeURIComponent(email)}`} className="block">
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <Button variant="cyber" className="w-full" type="submit" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                  Send Reset Link
+                  Notify Admin for Reset
                 </Button>
                 <div className="text-center">
                   <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
