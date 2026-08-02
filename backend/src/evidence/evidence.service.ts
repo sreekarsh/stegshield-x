@@ -480,10 +480,14 @@ export class EvidenceService {
 
         switch (dto.action) {
           case "delete":
-            if (evidence.filePath && evidence.filePath.startsWith("evidence/") && this.r2.isConfigured) {
-              await this.r2.delete(evidence.filePath)
-            } else if (evidence.filePath) {
-              try { unlinkSync(evidence.filePath) } catch {}
+            try {
+              if (evidence.filePath && evidence.filePath.startsWith("evidence/") && this.r2.isConfigured) {
+                await this.r2.delete(evidence.filePath)
+              } else if (evidence.filePath) {
+                try { unlinkSync(evidence.filePath) } catch {}
+              }
+            } catch (storageError: any) {
+              this.logger.warn(`Failed to delete storage for evidence ${id}: ${storageError.message}`)
             }
             await this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } });
             await this.prisma.evidence.delete({ where: { id } });
