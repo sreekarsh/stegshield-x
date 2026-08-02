@@ -114,6 +114,8 @@ export class StegoService {
     }
 
     const carrierBuffer = Buffer.from(carrier.fileData)
+    const mimeKey = (carrier.type || "UNKNOWN").toLowerCase()
+    const format = MIME_TO_FORMAT[mimeKey] || "UNKNOWN"
     let messageBuffer = Buffer.from(dto.message, "utf-8")
     let encryptionKeyHex: string | undefined = undefined
 
