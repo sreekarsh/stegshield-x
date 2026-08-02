@@ -73,6 +73,8 @@ services:
         value: "/tmp/uploads/evidence"
       - key: UPLOAD_TEMP_DIR
         value: "/tmp/uploads/evidence/temp"
+      - key: RESEND_API_KEY
+        sync: false
 
   # Python FastAPI AI Microservice
   - type: web

@@ -1,26 +1,49 @@
-import { Injectable } from "@nestjs/common"
-import * as nodemailer from "nodemailer"
+import { Injectable, Logger } from "@nestjs/common"
+
+interface MailOptions {
+  to: string
+  from?: string
+  replyTo?: string
+  subject: string
+  text?: string
+  html?: string
+  headers?: Record<string, string>
+}
 
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter | null = null
-  private securityContact = process.env.SECURITY_CONTACT_EMAIL || "security@stegshield.com"
+  private readonly logger = new Logger(MailService.name)
+  private readonly securityContact: string
+  private readonly resendApiKey: string | null
+  private readonly smtpFrom: string
 
   constructor() {
-    const host = process.env.SMTP_HOST
-    if (host) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: parseInt(process.env.SMTP_PORT || "587", 10),
-        secure: process.env.SMTP_SECURE === "true",
-        auth: {
-          user: process.env.SMTP_USER || "",
-          pass: process.env.SMTP_PASS || "",
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      })
+    this.securityContact = process.env.SECURITY_CONTACT_EMAIL || "security@stegshield.com"
+    this.resendApiKey = process.env.RESEND_API_KEY || null
+    this.smtpFrom = process.env.SMTP_FROM || "noreply@stegshield.com"
+  }
+
+  private async sendViaResend(opts: MailOptions): Promise<void> {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: opts.from || `StegShield X <${this.smtpFrom}>`,
+        to: [opts.to],
+        reply_to: opts.replyTo,
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+        headers: opts.headers,
+      }),
+    })
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "Unknown error")
+      throw new Error(`Resend API error ${res.status}: ${errText}`)
     }
   }
 
@@ -32,8 +55,6 @@ export class MailService {
     acceptUrl: string
     declineUrl: string
   }) {
-    if (!this.transporter) return
-
     const { to, invitedByName, organizationName, role, acceptUrl, declineUrl } = options
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
     const subject = `You're invited to join ${organizationName} on StegShield X`
@@ -41,40 +62,33 @@ export class MailService {
     const html = this.buildTemplate({ invitedByName, organizationName, role, acceptUrl, declineUrl })
     const text = `${invitedByName} has invited you to join ${organizationName} on StegShield X as ${role}.\n\nAccept: ${acceptUrl}\nDecline: ${declineUrl}`
 
-    await this.transporter.sendMail({
-      from: `"${invitedByName} via StegShield X" <${from}>`,
-      replyTo: process.env.SMTP_USER || "",
-      to,
-      subject,
-      text,
-      html,
-      headers: {
-        "List-Unsubscribe": `<${acceptUrl}?unsubscribe=1>`,
-        "Precedence": "bulk",
-        "X-Mailer": "StegShield X",
-      },
-    })
+    if (this.resendApiKey) {
+      return this.sendViaResend({
+        to,
+        from: `"${invitedByName} via StegShield X" <${from}>`,
+        replyTo: process.env.SMTP_USER || from,
+        subject,
+        text,
+        html,
+      }).catch((err) => this.logger.error("Failed to send invitation email via Resend:", err))
+    }
+
+    this.logger.warn("No RESEND_API_KEY configured — invitation email not sent")
   }
 
   async sendPasswordChanged(to: string, userName: string) {
-    if (!this.transporter) return
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
-    try {
-      await this.transporter.sendMail({
-        from: `"StegShield X Security" <${from}>`,
-        to,
-        subject: "StegShield X — Your password was changed",
-        text: `Hi ${userName},\n\nYour StegShield X password was successfully changed.\n\nIf you did not make this change, contact your administrator immediately.\n\n— StegShield X Security`,
-        html: `<p>Hi ${userName},</p><p>Your StegShield X password was successfully changed.</p><p>If you did not make this change, contact your administrator immediately.</p><p>— StegShield X Security</p>`,
-      })
-    } catch (err) {
-      console.error("Failed to send password changed alert:", err)
+    const subject = "StegShield X — Your password was changed"
+    const text = `Hi ${userName},\n\nYour StegShield X password was successfully changed.\n\nIf you did not make this change, contact your administrator immediately.\n\n— StegShield X Security`
+    const html = `<p>Hi ${userName},</p><p>Your StegShield X password was successfully changed.</p><p>If you did not make this change, contact your administrator immediately.</p><p>— StegShield X Security</p>`
+
+    if (this.resendApiKey) {
+      return this.sendViaResend({ to, from: `"StegShield X Security" <${from}>`, subject, text, html }).catch((err) => this.logger.error("Failed to send password changed alert via Resend:", err))
     }
+    this.logger.warn("No RESEND_API_KEY configured — password changed email not sent")
   }
 
   async sendPanicAlert(opts: { to: string; userName: string; action: string; ip: string }) {
-    if (!this.transporter) return
-
     const { to, userName, action, ip } = opts
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
     const actionLabels: Record<string, string> = {
@@ -93,7 +107,7 @@ export class MailService {
   @media only screen and (max-width:480px){.container{width:100%!important}.inner{padding:24px 16px!important}}
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
 <table class="container" width="480" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
   <tr><td style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:32px 32px 24px;text-align:center">
@@ -124,27 +138,20 @@ export class MailService {
 
     const text = `SECURITY ALERT — Panic Mode Triggered\n\nAction: ${label}\nIP: ${ip}\nTime: ${new Date().toLocaleString()}\n\nIf you did not perform this action, change your password immediately and contact ${this.securityContact}.`
 
-    try {
-      await this.transporter.sendMail({
-        from: `"StegShield X Security" <${from}>`,
+    if (this.resendApiKey) {
+      return this.sendViaResend({
         to,
+        from: `"StegShield X Security" <${from}>`,
         subject,
         text,
         html,
-        headers: {
-          Priority: "urgent",
-          Importance: "high",
-          "X-Mailer": "StegShield X",
-        },
-      })
-    } catch (err) {
-      console.error("Failed to send panic alert email:", err)
+        headers: { Priority: "urgent", Importance: "high", "X-Mailer": "StegShield X" },
+      }).catch((err) => this.logger.error("Failed to send panic alert via Resend:", err))
     }
+    this.logger.warn("No RESEND_API_KEY configured — panic alert email not sent")
   }
 
   async sendSecurityReport(opts: { fromEmail: string; userName: string; message: string; ip?: string }) {
-    if (!this.transporter) return
-
     const { fromEmail, userName, message, ip } = opts
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
     const subject = "[SECURITY INCIDENT] Panic Mode Report"
@@ -157,7 +164,7 @@ export class MailService {
   @media only screen and (max-width:480px){.container{width:100%!important}.inner{padding:24px 16px!important}}
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
 <table class="container" width="480" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
   <tr><td style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:32px 32px 24px;text-align:center">
@@ -184,28 +191,21 @@ export class MailService {
 
     const text = `SECURITY INCIDENT REPORT (Panic Mode)\n\nUser: ${userName}\nEmail: ${fromEmail}\nIP: ${ip || "Unknown"}\nTime: ${new Date().toLocaleString()}\n\nMessage:\n${message}`
 
-    try {
-      await this.transporter.sendMail({
+    if (this.resendApiKey) {
+      return this.sendViaResend({
         from: `"StegShield X Security" <${from}>`,
         to: this.securityContact,
         replyTo: fromEmail,
         subject,
         text,
         html,
-        headers: {
-          Priority: "urgent",
-          Importance: "high",
-          "X-Mailer": "StegShield X",
-        },
-      })
-    } catch (err) {
-      console.error("Failed to send security report email:", err)
+        headers: { Priority: "urgent", Importance: "high", "X-Mailer": "StegShield X" },
+      }).catch((err) => this.logger.error("Failed to send security report via Resend:", err))
     }
+    this.logger.warn("No RESEND_API_KEY configured — security report email not sent")
   }
 
   async sendSupportRequest(opts: { fromEmail: string; userName: string; message: string; ip?: string; category?: string }) {
-    if (!this.transporter) return
-
     const { fromEmail, userName, message, ip, category } = opts
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
     const subject = `[SUPPORT REQUEST]${category ? ` ${category} -` : ""} ${userName}`
@@ -218,7 +218,7 @@ export class MailService {
   @media only screen and (max-width:480px){.container{width:100%!important}.inner{padding:24px 16px!important}}
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
 <table class="container" width="480" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
   <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 32px 24px;text-align:center">
@@ -246,38 +246,30 @@ export class MailService {
 
     const text = `SUPPORT REQUEST\n\nUser: ${userName}\nEmail: ${fromEmail}${category ? `\nCategory: ${category}` : ""}\nIP: ${ip || "Unknown"}\nTime: ${new Date().toLocaleString()}\n\nMessage:\n${message}`
 
-    try {
-      await this.transporter.sendMail({
+    if (this.resendApiKey) {
+      return this.sendViaResend({
         from: `"StegShield X Support" <${from}>`,
         to: this.securityContact,
         replyTo: fromEmail,
         subject,
         text,
         html,
-        headers: {
-          Priority: "high",
-          "X-Mailer": "StegShield X",
-        },
-      })
-    } catch (err) {
-      console.error("Failed to send support request email:", err)
+        headers: { Priority: "high", "X-Mailer": "StegShield X" },
+      }).catch((err) => this.logger.error("Failed to send support request via Resend:", err))
     }
+    this.logger.warn("No RESEND_API_KEY configured — support request email not sent")
   }
 
   async sendEmailChangedNotification(to: string, userName: string, newEmail: string) {
-    if (!this.transporter) return
     const from = process.env.SMTP_FROM || "noreply@stegshield.com"
-    try {
-      await this.transporter.sendMail({
-        from: `"StegShield X Security" <${from}>`,
-        to,
-        subject: "StegShield X — Your email address was changed",
-        text: `Hi ${userName},\n\nYour StegShield X email address was changed to ${newEmail}.\n\nIf you did not make this change, contact your administrator immediately.\n\n— StegShield X Security`,
-        html: `<p>Hi ${userName},</p><p>Your StegShield X email address was changed to <strong>${newEmail}</strong>.</p><p>If you did not make this change, contact your administrator immediately.</p><p>— StegShield X Security</p>`,
-      })
-    } catch (err) {
-      console.error("Failed to send email change notification:", err)
+    const subject = "StegShield X — Your email address was changed"
+    const text = `Hi ${userName},\n\nYour StegShield X email address was changed to ${newEmail}.\n\nIf you did not make this change, contact your administrator immediately.\n\n— StegShield X Security`
+    const html = `<p>Hi ${userName},</p><p>Your StegShield X email address was changed to <strong>${newEmail}</strong>.</p><p>If you did not make this change, contact your administrator immediately.</p><p>— StegShield X Security</p>`
+
+    if (this.resendApiKey) {
+      return this.sendViaResend({ to, from: `"StegShield X Security" <${from}>`, subject, text, html }).catch((err) => this.logger.error("Failed to send email change notification via Resend:", err))
     }
+    this.logger.warn("No RESEND_API_KEY configured — email change notification not sent")
   }
 
   private escapeHtml(value: string): string {
@@ -297,7 +289,7 @@ export class MailService {
   @media only screen and (max-width:480px){.container{width:100%!important}.inner{padding:24px 16px!important}.btn{display:block!important;width:100%!important;text-align:center!important;margin-bottom:8px!important}}
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
 <table class="container" width="480" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
   <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 32px 24px;text-align:center">
