@@ -118,7 +118,7 @@ const ACTION_ICONS: Record<string, any> = {
   ACCESSED: Eye,
 }
 
-export default function EvidenceVaultPage() {
+function EvidenceVaultPageComponent(): JSX.Element {
   const [items, setItems] = useState<EvidenceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -851,3 +851,5 @@ export default function EvidenceVaultPage() {
     </div>
   )
 }
+
+export default EvidenceVaultPageComponent
