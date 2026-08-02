@@ -1,0 +1,3 @@
+backend/bin/qpdf binary
+backend/lib/* binary
+backend/bin/* binary
