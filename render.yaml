@@ -61,6 +61,8 @@ services:
         value: ".vercel.app"
       - key: SECURITY_CONTACT_EMAIL
         value: "sreekarsh44@gmail.com"
+      - key: SMTP_FROM
+        value: "onboarding@resend.dev"
       - key: SHARING_DEFAULT_IP_RESTRICTED
         value: "false"
       - key: SHARING_DEFAULT_MAX_DOWNLOADS
