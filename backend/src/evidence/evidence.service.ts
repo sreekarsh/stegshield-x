@@ -466,7 +466,6 @@ export class EvidenceService {
 
         switch (dto.action) {
           case "delete":
-            if (existsSync(evidence.filePath)) unlinkSync(evidence.filePath);
             await this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } });
             await this.prisma.evidence.delete({ where: { id } });
             await this.logAudit(userId, "EVIDENCE_DELETE", "evidence", id);
@@ -556,11 +555,10 @@ export class EvidenceService {
 
   async verifyIntegrity(userId: string, evidenceId: string): Promise<{ valid: boolean; expected: string; actual: string }> {
     const evidence = await this.findById(userId, evidenceId);
-    if (!existsSync(evidence.filePath)) throw new NotFoundException("File not found on disk");
-    const encryptedBytes = readFileSync(evidence.filePath);
+    if (!evidence.fileData) throw new NotFoundException("File data not found");
     let decrypted: Buffer;
     try {
-      decrypted = this.decryptFile(encryptedBytes, evidence.id);
+      decrypted = this.decryptFile(evidence.fileData, evidence.id);
     } catch {
       return { valid: false, expected: evidence.hash, actual: "DECRYPTION_FAILED" };
     }
