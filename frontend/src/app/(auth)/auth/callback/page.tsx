@@ -13,14 +13,16 @@ function CallbackInner() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const errorParam = searchParams.get("error")
-    if (errorParam) {
-      setError(errorParam)
-      return
-    }
-
     const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
     const accessToken = searchParams.get("token")
+    const errorParam = searchParams.get("error")
+    const hashError = typeof window !== "undefined" ? new URLSearchParams(window.location.hash.slice(1)).get("error") : null
+    const finalError = errorParam || hashError
+
+    if (finalError) {
+      setError(finalError)
+      return
+    }
 
     const initAuth = async () => {
       if (accessToken) {
@@ -63,13 +65,25 @@ function CallbackInner() {
   }, [router, setUser, searchParams])
 
   if (error) {
+    let displayMessage = "An error occurred during sign in."
+    if (error === "access_denied") {
+      displayMessage = "You denied the authorization request."
+    } else if (error.toLowerCase().includes("redirect_uri")) {
+      displayMessage = "OAuth redirect URL mismatch. Please contact support or try again later."
+    } else if (error.toLowerCase().includes("invalid_client")) {
+      displayMessage = "OAuth client configuration error. Please try again later."
+    } else if (error.toLowerCase().includes("network") || error.toLowerCase().includes("fetch")) {
+      displayMessage = "Network error. Please check your connection and try again."
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-cyber-500/5 p-4">
         <div className="text-center">
           <Shield className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Authentication Failed</h1>
-          <p className="text-muted-foreground mb-4">
-            {error === "access_denied" ? "You denied the authorization request." : "An error occurred during sign in."}
+          <p className="text-muted-foreground mb-4">{displayMessage}</p>
+          <p className="text-xs text-muted-foreground mb-4 font-mono bg-muted/50 p-2 rounded">
+            {error}
           </p>
           <Link href="/login" className="text-cyber-400 hover:underline font-medium">
             Try again
