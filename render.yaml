@@ -52,7 +52,7 @@ services:
       - key: AI_SERVICE_URL
         value: "https://stegshield-ai-service.onrender.com"
       - key: AI_API_KEY
-        value: "stegshield-ai-key-change-in-production"
+        value: "4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
       - key: AI_API_KEY_REQUIRED
         value: "true"
       - key: COOKIE_DOMAIN
@@ -78,11 +78,15 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: AI_API_KEY
-        value: "stegshield-ai-key-change-in-production"
+        value: "4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
       - key: AI_API_KEY_REQUIRED
         value: "true"
       - key: ALLOWED_ORIGINS
         value: "https://stegshield-x.vercel.app,https://stegshield-backend.onrender.com"
+      - key: AI_MODEL
+        value: "llama-3.3-70b-versatile"
+      - key: GROQ_API_KEY
+        sync: false
       - key: MAX_FILE_SIZE
         value: "50000000"
 
