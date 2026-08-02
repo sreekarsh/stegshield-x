@@ -394,8 +394,12 @@ export class EvidenceService {
       } else {
         throw new NotFoundException("Evidence file data not found. This file may have been uploaded before the storage migration. Please re-upload the file.")
       }
-    } catch {
-      throw new ForbiddenException("Decryption failed — file may be corrupted or encryption key has changed")
+    } catch (err: any) {
+      const msg = err?.message || "Unknown error"
+      if (msg.includes("NoSuchKey") || msg.includes("NotFound") || msg.includes("404")) {
+        throw new NotFoundException(`File not found in storage: ${msg}`)
+      }
+      throw new ForbiddenException(`Download failed: ${msg}`)
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

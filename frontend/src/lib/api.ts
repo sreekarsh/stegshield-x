@@ -214,7 +214,10 @@ export const api = {
         redirectToLogin()
         throw new ApiError(401, "Session expired — redirecting to login")
       }
-      if (!response.ok) throw new ApiError(response.status, "Download failed")
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Download failed" }))
+        throw new ApiError(response.status, error.message || "Download failed", error)
+      }
       return response.blob()
     } catch (e: unknown) {
       if (e instanceof ApiError) throw e

@@ -198,9 +198,10 @@ export default function EvidenceVaultPage() {
       URL.revokeObjectURL(url)
       toast.success("Downloaded & logged in custody chain")
       fetchEvidence()
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Download failed")
+    } catch (err: any) {
+      toast.error(err?.message || "Download failed")
     }
+  }
   }
 
   const handleStatusChange = async (itemId: string, newStatus: string) => {
