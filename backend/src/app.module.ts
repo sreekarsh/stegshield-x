@@ -35,6 +35,7 @@ import { PdfModule } from "./pdf/pdf.module"
 import { UrlCheckerModule } from "./url-checker/url-checker.module"
 import { DashboardModule } from "./dashboard/dashboard.module"
 import { SupportModule } from "./support/support.module"
+import { R2Module } from "./storage/r2.module"
 
 @Module({
   imports: [
@@ -74,8 +75,11 @@ import { SupportModule } from "./support/support.module"
     AiModule,
     SecretLanguageModule,
     ContactsModule,
+    PdfModule,
+    UrlCheckerModule,
     DashboardModule,
     SupportModule,
+    R2Module,
   ],
   controllers: [HealthController],
   providers: [

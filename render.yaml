@@ -77,6 +77,18 @@ services:
         value: "/tmp/uploads/evidence/temp"
       - key: RESEND_API_KEY
         sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: "stegshield-evidence"
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_REGION
+        value: "auto"
 
   # Python FastAPI AI Microservice
   - type: web

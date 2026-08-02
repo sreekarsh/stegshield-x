@@ -19,6 +19,7 @@ import { AuditActions } from "../audit/audit.constants";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import { R2Service } from "../storage/r2.service";
 
 const MAGIC_BYTES: Record<string, { magic: number[]; mime: string; ext: string }> = {
   pdf: { magic: [0x25, 0x50, 0x44, 0x46], mime: "application/pdf", ext: ".pdf" },
@@ -112,6 +113,7 @@ export class EvidenceService {
     private readonly config: ConfigService,
     private readonly http: HttpService,
     private readonly audit: AuditService,
+    private readonly r2: R2Service,
   ) {
     this.uploadDir = this.config.get("UPLOAD_DIR") || join(process.cwd(), "uploads", "evidence");
     this.aiServiceUrl = this.config.get("AI_SERVICE_URL") || "http://localhost:8000";
@@ -274,6 +276,17 @@ export class EvidenceService {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
       const encrypted = this.encryptFile(rawBytes, file.originalname);
+      const r2Key = `evidence/${file.id || file.originalname}.enc`;
+
+      let filePath = r2Key
+      let fileData: Buffer | undefined
+
+      if (this.r2.isConfigured) {
+        await this.r2.upload(r2Key, encrypted, mime)
+      } else {
+        filePath = join(this.uploadDir, `${file.originalname}`)
+        fileData = encrypted
+      }
 
       const evidence = await this.prisma.evidence.create({
         data: {
@@ -284,8 +297,8 @@ export class EvidenceService {
           hash: `sha256:${hash}`,
           hashAlgorithm: "sha256",
           size: fileStats.size,
-          filePath: join(this.uploadDir, `${file.originalname}`),
-          fileData: encrypted,
+          filePath,
+          fileData,
           status: "COLLECTED",
           lastAccessedAt: new Date(),
           lastModifiedAt: new Date(),
@@ -371,12 +384,16 @@ export class EvidenceService {
   async download(userId: string, evidenceId: string, decoyMode = false, fakeVaultId?: string | null): Promise<{ buffer: Buffer; name: string; type: string }> {
     const evidence = await this.findById(userId, evidenceId, decoyMode, fakeVaultId);
 
-    if (!evidence.fileData) {
-      throw new NotFoundException("Evidence file data not found. This file may have been uploaded before the storage migration. Please re-upload the file.")
-    }
     let decrypted: Buffer;
     try {
-      decrypted = this.decryptFile(evidence.fileData, evidence.id);
+      if (evidence.fileData) {
+        decrypted = this.decryptFile(evidence.fileData, evidence.id);
+      } else if (evidence.filePath && this.r2.isConfigured) {
+        const r2Data = await this.r2.download(evidence.filePath);
+        decrypted = this.decryptFile(r2Data, evidence.id);
+      } else {
+        throw new NotFoundException("Evidence file data not found. This file may have been uploaded before the storage migration. Please re-upload the file.")
+      }
     } catch {
       throw new ForbiddenException("Decryption failed — file may be corrupted or encryption key has changed")
     }
@@ -552,12 +569,17 @@ export class EvidenceService {
 
   async verifyIntegrity(userId: string, evidenceId: string): Promise<{ valid: boolean; expected: string; actual: string }> {
     const evidence = await this.findById(userId, evidenceId);
-    if (!evidence.fileData) {
+    if (!evidence.fileData && !(evidence.filePath && this.r2.isConfigured)) {
       return { valid: false, expected: evidence.hash, actual: "FILE_DATA_MISSING" };
     }
     let decrypted: Buffer;
     try {
-      decrypted = this.decryptFile(evidence.fileData, evidence.id);
+      if (evidence.fileData) {
+        decrypted = this.decryptFile(evidence.fileData, evidence.id);
+      } else {
+        const r2Data = await this.r2.download(evidence.filePath!);
+        decrypted = this.decryptFile(r2Data, evidence.id);
+      }
     } catch {
       return { valid: false, expected: evidence.hash, actual: "DECRYPTION_FAILED" };
     }
