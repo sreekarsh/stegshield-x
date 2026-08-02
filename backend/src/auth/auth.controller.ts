@@ -22,7 +22,7 @@ function setRefreshCookie(res: any, token: string) {
     httpOnly: true,
     secure: IS_PROD,
     sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
-    path: "/api/auth",
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     domain: COOKIE_DOMAIN,
   })
@@ -44,7 +44,7 @@ function clearRefreshCookie(res: any) {
     httpOnly: true,
     secure: IS_PROD,
     sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
-    path: "/api/auth",
+    path: "/",
     maxAge: 0,
     domain: COOKIE_DOMAIN,
   })
