@@ -202,7 +202,6 @@ function EvidenceVaultPageComponent(): JSX.Element {
       toast.error(err?.message || "Download failed")
     }
   }
-  }
 
   const handleStatusChange = async (itemId: string, newStatus: string) => {
     setUpdatingId(itemId)
