@@ -487,7 +487,7 @@ export class EvidenceService {
                 try { unlinkSync(evidence.filePath) } catch {}
               }
             } catch (storageError: any) {
-              this.logger.warn(`Failed to delete storage for evidence ${id}: ${storageError.message}`)
+              console.warn(`Failed to delete storage for evidence ${id}: ${storageError.message}`)
             }
             await this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } });
             await this.prisma.evidence.delete({ where: { id } });
