@@ -27,10 +27,21 @@ export class AiService {
     const parsedUrl = new URL(url)
     const body = JSON.stringify({ messages })
 
-    // Flush headers immediately so the browser starts receiving SSE right away
     res.flushHeaders()
 
     return new Promise<void>((resolve) => {
+      const sendFallback = (prefix: string) => {
+        res.write(`data: ${JSON.stringify({ content: prefix })}\n\n`)
+        const localResponse = this.generateLocalResponse(messages)
+        const words = localResponse.split(" ")
+        for (const word of words) {
+          res.write(`data: ${JSON.stringify({ content: word + " " })}\n\n`)
+        }
+        res.write("data: [DONE]\n\n")
+        res.end()
+        resolve()
+      }
+
       const options: http.RequestOptions = {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || (url.startsWith("https") ? 443 : 80),
@@ -45,6 +56,16 @@ export class AiService {
       }
 
       const req = agent.request(options, (proxyRes) => {
+        if (proxyRes.statusCode !== 200) {
+          let errBody = ""
+          proxyRes.on("data", (chunk: Buffer) => { errBody += chunk.toString() })
+          proxyRes.on("end", () => {
+            console.error(`[AiService] Upstream ${proxyRes.statusCode}: ${errBody.slice(0, 200)}`)
+            sendFallback("*AI service error — local response:*\n\n")
+          })
+          return
+        }
+
         proxyRes.on("data", (chunk: Buffer) => {
           res.write(chunk)
         })
@@ -52,24 +73,7 @@ export class AiService {
           res.end()
           resolve()
         })
-        proxyRes.on("error", () => {
-          res.end()
-          resolve()
-        })
       })
-
-      const sendFallback = (prefix: string) => {
-        res.write(`data: ${JSON.stringify({ content: prefix })}\n\n`)
-        const localResponse = this.generateLocalResponse(messages)
-        // Send word-by-word for a streaming feel instead of char-by-char
-        const words = localResponse.split(" ")
-        for (const word of words) {
-          res.write(`data: ${JSON.stringify({ content: word + " " })}\n\n`)
-        }
-        res.write("data: [DONE]\n\n")
-        res.end()
-        resolve()
-      }
 
       req.on("error", () => sendFallback("*AI service unavailable — local response:*\n\n"))
       req.on("timeout", () => { req.destroy(); sendFallback("*AI timeout — local response:*\n\n") })
