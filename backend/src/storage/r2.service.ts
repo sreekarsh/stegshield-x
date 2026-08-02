@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { HttpService } from "@nestjs/axios"
-import { firstValueFrom } from "rxjs"
 import * as crypto from "crypto"
+import * as https from "https"
 
 interface R2Config {
   accountId: string
@@ -12,12 +11,17 @@ interface R2Config {
   region: string
 }
 
+interface SignedResult {
+  url: string
+  headers: Record<string, string>
+}
+
 @Injectable()
 export class R2Service {
   private readonly logger = new Logger(R2Service.name)
   private readonly config: R2Config | null = null
 
-  constructor(private readonly http: HttpService) {
+  constructor() {
     const accountId = process.env.R2_ACCOUNT_ID
     const accessKeyId = process.env.R2_ACCESS_KEY_ID
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
@@ -37,10 +41,11 @@ export class R2Service {
     return !!this.config && !!this.config.endpoint
   }
 
-  private signRequest(method: string, key: string, body: Buffer | null = null): { url: string; headers: Record<string, string> } {
+  private signRequest(method: string, key: string, body: Buffer | null = null): SignedResult {
     if (!this.config) throw new Error("R2 not configured")
 
-    const host = new URL(this.config.endpoint).host
+    const endpointUrl = new URL(this.config.endpoint)
+    const host = endpointUrl.host
     const now = new Date()
     const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, "")
     const date = now.toUTCString()
@@ -54,7 +59,7 @@ export class R2Service {
 
     const signedHeaderNames = Object.keys(headersToSign).sort().join(";")
 
-    const canonicalURI = `/${this.config.bucket}/${key}`
+    const canonicalURI = "/" + this.config.bucket + "/" + key
     const canonicalQueryString = ""
     const canonicalHeaders = Object.keys(headersToSign).sort().map(k => `${k}:${headersToSign[k]}\n`).join("")
     const canonicalRequest = `${method}\n${canonicalURI}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaderNames}\n${payloadHash}`
@@ -82,42 +87,58 @@ export class R2Service {
     return { url, headers }
   }
 
+  private request(method: string, path: string, body: Buffer | null = null, contentType = "application/octet-stream"): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const { url, headers } = this.signRequest(method, path, body)
+      const urlObj = new URL(url)
+      const reqHeaders: Record<string, string> = { ...headers, "Content-Type": contentType }
+      if (body) reqHeaders["Content-Length"] = String(body.length)
+
+      const req = https.request({
+        hostname: urlObj.hostname,
+        path: urlObj.pathname,
+        method,
+        headers: reqHeaders,
+      }, (res) => {
+        const chunks: Buffer[] = []
+        res.on("data", chunk => chunks.push(chunk))
+        res.on("end", () => {
+          const data = Buffer.concat(chunks).toString()
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`R2 ${method} failed: ${res.statusCode} ${data.slice(0, 500)}`))
+          } else {
+            resolve({ status: res.statusCode, data })
+          }
+        })
+      })
+
+      req.on("error", reject)
+      if (body) req.write(body)
+      req.end()
+    })
+  }
+
   async upload(key: string, data: Buffer, contentType?: string): Promise<string> {
     if (!this.isConfigured) throw new Error("R2 not configured")
-    const { url, headers } = this.signRequest("PUT", key, data)
-    const allHeaders = { ...headers, "Content-Type": contentType || "application/octet-stream" }
-    const response = await firstValueFrom(
-      this.http.put(url, data, { headers: allHeaders, responseType: "text" }),
-    )
-    if (response.status >= 400) {
-      throw new Error(`R2 upload failed: ${response.status} ${response.data}`)
-    }
+    await this.request("PUT", key, data, contentType)
     return key
   }
 
   async download(key: string): Promise<Buffer> {
     if (!this.isConfigured) throw new Error("R2 not configured")
-    const { url, headers } = this.signRequest("GET", key)
-    const response = await firstValueFrom(
-      this.http.get(url, { headers, responseType: "text" }),
-    )
-    if (response.status >= 400) {
-      throw new Error(`R2 download failed: ${response.status} ${response.data}`)
-    }
-    return Buffer.from(response.data as string)
+    const result = await this.request("GET", key)
+    return Buffer.from(result.data)
   }
 
   async delete(key: string): Promise<void> {
     if (!this.isConfigured) return
-    const { url, headers } = this.signRequest("DELETE", key)
     try {
-      await firstValueFrom(this.http.delete(url, { headers, responseType: "text" }))
+      await this.request("DELETE", key)
     } catch {}
   }
 
   async getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
     if (!this.isConfigured) return ""
-    const expires = Math.floor(Date.now() / 1000) + expiresIn
     const host = new URL(this.config!.endpoint).host
     const now = new Date()
     const date = now.toUTCString()
