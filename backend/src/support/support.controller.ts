@@ -16,6 +16,11 @@ export class SupportController {
   @UseGuards(JwtAuthGuard)
   async contactSupport(@Req() req: any, @Body() dto: ContactSupportDto) {
     this.logger.log(`Support request from user: ${req.user?.id}, message length: ${dto.message?.length}`)
-    return this.supportService.contactSupport(req.user.id, dto.message, dto.category, extractClientIp(req))
+    try {
+      return await this.supportService.contactSupport(req.user.id, dto.message, dto.category, extractClientIp(req))
+    } catch (err: any) {
+      this.logger.error(`Support contact failed: ${err?.message || err}`, err?.stack)
+      throw err
+    }
   }
 }

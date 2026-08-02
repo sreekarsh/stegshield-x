@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Patch, Param, Body, UseGuards, Req } from "@nestjs/common"
+import { Controller, Get, Post, Delete, Patch, Param, Body, UseGuards, Req, Logger } from "@nestjs/common"
 import { Throttle } from "@nestjs/throttler"
 import { TeamService } from "./team.service"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
@@ -9,6 +9,7 @@ import { ApiTags, ApiBearerAuth } from "@nestjs/swagger"
 @ApiBearerAuth()
 @Controller("team")
 export class TeamController {
+  private readonly logger = new Logger(TeamController.name)
   constructor(private teamService: TeamService) {}
 
   @Get("organization")
@@ -22,7 +23,15 @@ export class TeamController {
   @Post("invite")
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async invite(@Req() req: any, @Body() dto: { email: string; role: string }) { return this.teamService.invite(req.user.id, dto, extractClientIp(req)) }
+  async invite(@Req() req: any, @Body() dto: { email: string; role: string }) {
+    this.logger.log(`Team invite from user: ${req.user?.id}, email: ${dto.email}`)
+    try {
+      return await this.teamService.invite(req.user.id, dto, extractClientIp(req))
+    } catch (err: any) {
+      this.logger.error(`Team invite failed: ${err?.message || err}`, err?.stack)
+      throw err
+    }
+  }
 
   @Delete("members/:id")
   @UseGuards(JwtAuthGuard)
