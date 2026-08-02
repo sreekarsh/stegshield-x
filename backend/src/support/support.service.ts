@@ -25,7 +25,7 @@ export class SupportService {
         userName,
         action: "support.contact",
         resource: "help",
-        ip,
+        ip: ip || "127.0.0.1",
         userAgent: "help-center",
         metadata: { messageLength: message.length, category: category || undefined },
       },

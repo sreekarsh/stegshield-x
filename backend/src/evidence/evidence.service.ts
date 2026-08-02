@@ -56,21 +56,22 @@ export interface PaginatedResult<T> {
 
 export interface EvidenceWithCustody {
   id: string;
-  caseId: string;
+  caseId: string | null;
   userId: string;
   name: string;
   type: string;
   hash: string;
   hashAlgorithm: string;
   size: number;
-  filePath: string;
+  filePath: string | null;
+  fileData?: Buffer | null;
   status: string;
   createdAt: Date;
   lastAccessedAt: Date | null;
   lastModifiedAt: Date | null;
   custody: CustodyEntry[];
   user?: { id: string; name: string; email: string };
-  case?: { id: string; name: string };
+  case?: { id: string; name: string } | null;
 }
 
 export interface CustodyEntry {

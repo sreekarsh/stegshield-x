@@ -35,7 +35,7 @@ export class VaultService {
       const item = await this.prisma.evidence.findUnique({ where: { id } })
       if (!item) throw new NotFoundException("Evidence not found")
       if (item.userId !== userId) throw new ForbiddenException("Access denied")
-      if (existsSync(item.filePath)) unlinkSync(item.filePath)
+      if (item.filePath && existsSync(item.filePath)) unlinkSync(item.filePath)
       await this.prisma.$transaction([
         this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } }),
         this.prisma.evidenceShare.deleteMany({ where: { evidenceId: id } }),

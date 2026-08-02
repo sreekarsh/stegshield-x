@@ -109,19 +109,11 @@ export class StegoService {
     if (!carrier) {
       throw new NotFoundException("Carrier file not found")
     }
-    if (!existsSync(carrier.filePath)) {
-      throw new NotFoundException("Carrier file not found on disk")
+    if (!carrier.fileData) {
+      throw new NotFoundException("Carrier file data not found")
     }
 
-    const mimeKey = carrier.type?.toLowerCase() || "UNKNOWN"
-    const format = MIME_TO_FORMAT[mimeKey]
-    if (!format) {
-      throw new BadRequestException(
-        `Unsupported carrier type '${carrier.type}'. Supported: ${Object.values(MIME_TO_FORMAT).join(", ")}`,
-      )
-    }
-
-    const carrierBuffer = readFileSync(carrier.filePath)
+    const carrierBuffer = Buffer.from(carrier.fileData)
     let messageBuffer = Buffer.from(dto.message, "utf-8")
     let encryptionKeyHex: string | undefined = undefined
 
@@ -177,11 +169,11 @@ export class StegoService {
     }
 
     const carrier = await this.prisma.evidence.findUnique({ where: { id: record.carrierFile } })
-    if (!carrier || !existsSync(carrier.filePath)) {
-      throw new NotFoundException("Original carrier file not found on disk")
+    if (!carrier || !carrier.fileData) {
+      throw new NotFoundException("Original carrier file not found")
     }
 
-    const carrierBuffer = readFileSync(carrier.filePath)
+    const carrierBuffer = Buffer.from(carrier.fileData)
     const payload = extractLSB(carrierBuffer)
 
     let message: string
