@@ -14,7 +14,6 @@ export class SupportController {
 
   @Post("contact")
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async contactSupport(@Req() req: any, @Body() dto: ContactSupportDto) {
     return this.supportService.contactSupport(req.user.id, dto.message, dto.category, extractClientIp(req))
   }
