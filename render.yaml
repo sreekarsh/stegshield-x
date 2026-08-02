@@ -52,7 +52,7 @@ services:
       - key: AI_SERVICE_URL
         value: "https://stegshield-ai-service.onrender.com"
       - key: AI_API_KEY
-        generateValue: true
+        value: "stegshield-ai-key-change-in-production"
       - key: AI_API_KEY_REQUIRED
         value: "true"
       - key: COOKIE_DOMAIN
@@ -76,6 +76,15 @@ services:
     rootDir: ai-service
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: AI_API_KEY
+        value: "stegshield-ai-key-change-in-production"
+      - key: AI_API_KEY_REQUIRED
+        value: "true"
+      - key: ALLOWED_ORIGINS
+        value: "https://stegshield-x.vercel.app,https://stegshield-backend.onrender.com"
+      - key: MAX_FILE_SIZE
+        value: "50000000"
 
 databases:
   # Free PostgreSQL Database Instance
