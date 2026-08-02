@@ -8,9 +8,11 @@ import { promisify } from "util"
 
 const execFileAsync = promisify(execFile)
 
+const BUNDLED_QPDF = path.join(process.cwd(), "bin", "qpdf")
+
 function getQpdfPath(): string {
-  const envPath = process.env.QPDF_PATH
-  if (envPath && fs.existsSync(envPath)) return envPath
+  if (process.env.QPDF_PATH && fs.existsSync(process.env.QPDF_PATH)) return process.env.QPDF_PATH
+  if (fs.existsSync(BUNDLED_QPDF)) return BUNDLED_QPDF
   if (process.platform === "win32") {
     try {
       const result = require("child_process").execSync("where qpdf", { stdio: "pipe", encoding: "utf8" })
@@ -42,6 +44,15 @@ function qpdfExists(bin: string): boolean {
 
 const QPDF_PATH = getQpdfPath()
 
+function qpdfEnv(): Record<string, string> {
+  const libDir = path.join(process.cwd(), "lib")
+  const ldPath = process.env.LD_LIBRARY_PATH
+  const newLdPath = ldPath ? `${libDir}:${ldPath}` : libDir
+  return process.platform === "linux" || process.platform === "darwin"
+    ? { LD_LIBRARY_PATH: newLdPath }
+    : {}
+}
+
 function tmpPdf(suffix: string): string {
   return path.join(os.tmpdir(), `pdf_${suffix}_${crypto.randomBytes(8).toString("hex")}.pdf`)
 }
@@ -50,13 +61,10 @@ function tmpPdf(suffix: string): string {
 export class PdfService {
   private async isEncrypted(filePath: string): Promise<boolean> {
     try {
-      const result = await execFileAsync(QPDF_PATH, ["--is-encrypted", "--", filePath])
-      // qpdf exits 0 = encrypted, 2 = not encrypted (not an error)
+      await execFileAsync(QPDF_PATH, ["--is-encrypted", "--", filePath], { env: { ...process.env, ...qpdfEnv() } })
       return true
     } catch (e: any) {
-      // Exit code 2 means NOT encrypted — this is the normal unencrypted case
       if (e.code === 2) return false
-      // Exit code 1 or other non-zero codes = actual error (bad file, missing qpdf, etc.)
       throw new InternalServerErrorException(`Failed to check PDF encryption: ${e.message || e.stderr || "unknown error"}`)
     }
   }
@@ -84,7 +92,7 @@ export class PdfService {
         "--encrypt", password, ownerPw, "256",
         "--print=none", "--modify=none", "--extract=n", "--annotate=n",
         "--", inputPath, outputPath,
-      ])
+      ], { env: { ...process.env, ...qpdfEnv() } })
       return fs.promises.readFile(outputPath)
     } catch (e: any) {
       if (e instanceof BadRequestException) throw e
@@ -114,11 +122,10 @@ export class PdfService {
         "--warning-exit-0",
         "--decrypt", `--password=${password}`,
         "--", inputPath, outputPath,
-      ])
+      ], { env: { ...process.env, ...qpdfEnv() } })
       return fs.promises.readFile(outputPath)
     } catch (e: any) {
       if (e instanceof BadRequestException) throw e
-      // qpdf reports wrong password in stderr, message, or via exit code 2
       const errText = ((e.stderr || "") + (e.message || "")).toLowerCase()
       if (
         errText.includes("invalid password") ||
