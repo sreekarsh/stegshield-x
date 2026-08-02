@@ -1,11 +1,9 @@
 ﻿"use client"
 
 import { useEffect, useState } from "react"
-import { Bell, Info, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Bell, Info, AlertTriangle, CheckCircle, Loader2, Trash2 } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { PageHeader } from "@/components/layout/page-header"
 import { api } from "@/lib/api"
 import toast from "react-hot-toast"
 
@@ -55,9 +53,32 @@ export default function NotificationsPage() {
     }
   }
 
+  const handleClearAll = async () => {
+    try {
+      await api.delete("/notifications")
+      setNotifications([])
+      toast.success("All notifications cleared")
+    } catch {
+      toast.error("Failed to clear notifications")
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Notifications" description="Security alerts and system notifications" action={{ label: "Mark All Read", icon: CheckCircle, onClick: markAllRead }} />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Notifications</h1>
+          <p className="text-sm text-muted-foreground mt-1">Security alerts and system notifications</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={markAllRead} disabled={notifications.length === 0}>
+            <CheckCircle className="h-4 w-4 mr-1.5" /> Mark All Read
+          </Button>
+          <Button variant="destructive" size="sm" onClick={handleClearAll} disabled={notifications.length === 0}>
+            <Trash2 className="h-4 w-4 mr-1.5" /> Clear All
+          </Button>
+        </div>
+      </div>
       <Card className="glass-card">
         <CardContent className="p-0">
           {loading ? (

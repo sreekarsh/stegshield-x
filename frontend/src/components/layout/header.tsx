@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle, Eye, LifeBuoy } from "lucide-react"
+import { Bell, Search, Settings, LogOut, User, Terminal, Users, Flame, Check, ShieldAlert, Shield, HelpCircle, Eye, LifeBuoy, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -75,6 +75,17 @@ export const Header = memo(function Header() {
       toast.success("Notifications marked as read")
     } catch {
       toast.error("Failed to mark notifications as read")
+    }
+  }
+
+  const handleClearAll = async () => {
+    try {
+      await api.delete("/notifications")
+      setUnreadCount(0)
+      setRecentNotifications([])
+      toast.success("All notifications cleared")
+    } catch {
+      toast.error("Failed to clear notifications")
     }
   }
 
@@ -160,14 +171,24 @@ export const Header = memo(function Header() {
             <DropdownMenuContent align="end" className="w-80 p-2">
             <div className="flex items-center justify-between px-2 py-1.5 mb-1 border-b border-border">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notifications</span>
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  className="text-[11px] text-cyber-400 hover:underline flex items-center gap-1"
-                >
-                  <Check className="h-3 w-3" /> Mark all read
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] text-cyber-400 hover:underline flex items-center gap-1"
+                  >
+                    <Check className="h-3 w-3" /> Mark all read
+                  </button>
+                )}
+                {(recentNotifications || []).length > 0 && (
+                  <button
+                    onClick={handleClearAll}
+                    className="text-[11px] text-destructive/80 hover:text-destructive hover:underline flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" /> Clear all
+                  </button>
+                )}
+              </div>
             </div>
             {(!recentNotifications || recentNotifications.length === 0) ? (
               <div className="py-6 text-center text-xs text-muted-foreground">

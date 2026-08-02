@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Patch, Param, UseGuards, Req, Query } from "@nestjs/common"
+﻿import { Controller, Get, Patch, Delete, Param, UseGuards, Req, Query, Body } from "@nestjs/common"
 import { NotificationsService } from "./notifications.service"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger"
@@ -16,4 +16,10 @@ export class NotificationsController {
   @Patch("read-all")
   @UseGuards(JwtAuthGuard)
   async markAllRead(@Req() req: any) { return this.notificationsService.markAllRead(req.user.id) }
+  @Delete(":id")
+  @UseGuards(JwtAuthGuard)
+  async delete(@Req() req: any, @Param("id") id: string) { return this.notificationsService.delete(req.user.id, id) }
+  @Delete()
+  @UseGuards(JwtAuthGuard)
+  async deleteAll(@Req() req: any) { return this.notificationsService.deleteAll(req.user.id) }
 }

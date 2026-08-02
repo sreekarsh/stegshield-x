@@ -24,4 +24,15 @@ export class NotificationsService {
     return this.prisma.notification.update({ where: { id }, data: { isRead: true } })
   }
   async markAllRead(userId: string) { await this.prisma.notification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } }); return { message: "All notifications marked as read" } }
+  async delete(userId: string, id: string) {
+    const notif = await this.prisma.notification.findUnique({ where: { id } })
+    if (!notif) throw new NotFoundException("Notification not found")
+    if (notif.userId !== userId) throw new ForbiddenException("Access denied")
+    await this.prisma.notification.delete({ where: { id } })
+    return { message: "Notification deleted" }
+  }
+  async deleteAll(userId: string) {
+    await this.prisma.notification.deleteMany({ where: { userId } })
+    return { message: "All notifications cleared" }
+  }
 }
