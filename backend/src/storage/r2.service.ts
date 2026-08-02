@@ -37,19 +37,27 @@ export class R2Service {
     return !!this.config && !!this.config.endpoint
   }
 
-  private signRequest(method: string, key: string, body: Buffer | null = null, contentType = "application/octet-stream"): { url: string; headers: Record<string, string> } {
+  private signRequest(method: string, key: string, body: Buffer | null = null): { url: string; headers: Record<string, string> } {
     if (!this.config) throw new Error("R2 not configured")
 
     const host = new URL(this.config.endpoint).host
     const now = new Date()
-    const date = now.toUTCString()
     const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, "")
+    const date = now.toUTCString()
     const payloadHash = crypto.createHash("sha256").update(body || Buffer.alloc(0)).digest("hex")
-    const signedHeaders = "host;x-amz-date"
+
+    const headersToSign: Record<string, string> = {
+      host,
+      "x-amz-date": amzDate,
+      "x-amz-content-sha256": payloadHash,
+    }
+
+    const signedHeaderNames = Object.keys(headersToSign).sort().join(";")
+
     const canonicalURI = `/${this.config.bucket}/${key}`
     const canonicalQueryString = ""
-    const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n\n`
-    const canonicalRequest = `${method}\n${canonicalURI}\n${canonicalQueryString}\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`
+    const canonicalHeaders = Object.keys(headersToSign).sort().map(k => `${k}:${headersToSign[k]}\n`).join("")
+    const canonicalRequest = `${method}\n${canonicalURI}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaderNames}\n${payloadHash}`
 
     const algorithm = "AWS4-HMAC-SHA256"
     const credentialScope = `${date.slice(0, 4)}/${date.slice(5, 7)}/${date.slice(8, 10)}/s3/aws4_request`
@@ -64,23 +72,22 @@ export class R2Service {
     const signingKey4 = crypto.createHmac("sha256", signingKey3).update("s3/aws4_request").digest()
     const signature = crypto.createHmac("sha256", signingKey4).update(stringToSign).digest("hex")
 
-    const authorization = `${algorithm} Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
+    const authorization = `${algorithm} Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaderNames}, Signature=${signature}`
 
     const url = `${this.config.endpoint}/${this.config.bucket}/${key}`
     const headers: Record<string, string> = {
-      Host: host,
-      "X-Amz-Date": amzDate,
+      ...headersToSign,
       Authorization: authorization,
     }
-    if (contentType) headers["Content-Type"] = contentType
     return { url, headers }
   }
 
   async upload(key: string, data: Buffer, contentType?: string): Promise<string> {
     if (!this.isConfigured) throw new Error("R2 not configured")
-    const { url, headers } = this.signRequest("PUT", key, data, contentType)
+    const { url, headers } = this.signRequest("PUT", key, data)
+    const allHeaders = { ...headers, "Content-Type": contentType || "application/octet-stream" }
     const response = await firstValueFrom(
-      this.http.put(url, data, { headers, responseType: "text" }),
+      this.http.put(url, data, { headers: allHeaders, responseType: "text" }),
     )
     if (response.status >= 400) {
       throw new Error(`R2 upload failed: ${response.status} ${response.data}`)
@@ -116,7 +123,7 @@ export class R2Service {
     const date = now.toUTCString()
     const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, "")
     const credentialScope = `${date.slice(0, 4)}/${date.slice(5, 7)}/${date.slice(8, 10)}/s3/aws4_request`
-    const url = `${this.config!.endpoint}/${this.config!.bucket}/${encodeURIComponent(key)}`
+    const url = `${this.config!.endpoint}/${this.config!.bucket}/${key}`
     const signingKey = crypto.createHmac("sha256", `AWS4${this.config!.secretAccessKey}`)
       .update(date.slice(0, 4))
       .digest()
@@ -125,7 +132,7 @@ export class R2Service {
     const signingKey4 = crypto.createHmac("sha256", signingKey3).update("s3/aws4_request").digest()
     const params = new URLSearchParams({
       "X-Amz-Expires": String(expiresIn),
-      "X-Amz-SignedHeaders": "host",
+      "X-Amz-SignedHeaders": "host;x-amz-date;x-amz-content-sha256",
       "X-Amz-Date": amzDate,
       "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
       "X-Amz-Credential": `${this.config!.accessKeyId}/${credentialScope}`,
