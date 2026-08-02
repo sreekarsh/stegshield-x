@@ -490,6 +490,8 @@ export class EvidenceService {
               console.warn(`Failed to delete storage for evidence ${id}: ${storageError.message}`)
             }
             await this.prisma.custodyEntry.deleteMany({ where: { evidenceId: id } });
+            await this.prisma.evidenceShare.deleteMany({ where: { evidenceId: id } });
+            await this.prisma.forensicsReport.deleteMany({ where: { evidenceId: id } });
             await this.prisma.evidence.delete({ where: { id } });
             await this.logAudit(userId, "EVIDENCE_DELETE", "evidence", id);
             break;
