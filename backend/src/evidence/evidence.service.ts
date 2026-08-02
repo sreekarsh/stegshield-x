@@ -276,7 +276,7 @@ export class EvidenceService {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
       const encrypted = this.encryptFile(rawBytes, file.originalname);
-      const r2Key = `evidence/${file.id || file.originalname}.enc`;
+      const r2Key = `evidence/${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}.enc`;
 
       let filePath = r2Key
       let fileData: Buffer | undefined
