@@ -243,7 +243,8 @@ model Evidence {
   hash           String
   hashAlgorithm  String
   size           Int
-  filePath       String
+  filePath       String?
+  fileData       Bytes?
   status         EvidenceStatus @default(COLLECTED)
   mimeType       String?
   originalMimeType String?

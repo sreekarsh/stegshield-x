@@ -278,6 +278,8 @@ export class EvidenceService {
         throw new BadRequestException(`File rejected: ${scanResult.threats.join(", ")}`);
       }
 
+      const encrypted = this.encryptFile(rawBytes, file.originalname);
+
       const evidence = await this.prisma.evidence.create({
         data: {
           userId,
@@ -287,20 +289,12 @@ export class EvidenceService {
           hash: `sha256:${hash}`,
           hashAlgorithm: "sha256",
           size: fileStats.size,
-          filePath: "",
+          filePath: join(this.uploadDir, `${file.originalname}`),
+          fileData: encrypted,
           status: "COLLECTED",
           lastAccessedAt: new Date(),
           lastModifiedAt: new Date(),
         },
-      });
-
-      const encPath = join(this.uploadDir, `${evidence.id}.enc`);
-      const encrypted = this.encryptFile(rawBytes, evidence.id);
-      writeFileSync(encPath, encrypted);
-
-      await this.prisma.evidence.update({
-        where: { id: evidence.id },
-        data: { filePath: encPath },
       });
 
       unlinkSync(file.path);
@@ -382,11 +376,10 @@ export class EvidenceService {
   async download(userId: string, evidenceId: string, decoyMode = false, fakeVaultId?: string | null): Promise<{ buffer: Buffer; name: string; type: string }> {
     const evidence = await this.findById(userId, evidenceId, decoyMode, fakeVaultId);
 
-    if (!existsSync(evidence.filePath)) throw new NotFoundException("File not found on disk");
-    const encryptedBytes = readFileSync(evidence.filePath);
+    if (!evidence.fileData) throw new NotFoundException("File data not found");
     let decrypted: Buffer;
     try {
-      decrypted = this.decryptFile(encryptedBytes, evidence.id);
+      decrypted = this.decryptFile(evidence.fileData, evidence.id);
     } catch {
       throw new ForbiddenException("Decryption failed — file may be corrupted or key has changed");
     }
