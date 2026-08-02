@@ -315,6 +315,43 @@ export class MailService {
     this.logger.warn("No RESEND_API_KEY configured — password reset email not sent")
   }
 
+  async sendPasswordResetUnknown(userEmail: string) {
+    const from = process.env.SMTP_FROM || "noreply@stegshield.com"
+    const recipient = this.securityContact
+    const subject = `[Password Reset Request] ${userEmail} — Account Not Found`
+    const text = `Password Reset Request\n\nUser Email: ${userEmail}\nStatus: Account NOT found in system\n\nNo action needed. This email is not registered in StegShield X.`
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:40px 16px">
+<table width="540" cellpadding="0" cellspacing="0" role="presentation" style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155">
+  <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:28px;text-align:center">
+    <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff">Password Reset Request</h1>
+    <p style="margin:4px 0 0;color:#c7d2fe;font-size:13px;font-weight:500">Account not found</p>
+  </td></tr>
+  <tr><td style="padding:28px 28px 16px;color:#cbd5e1;font-size:14px;line-height:1.6">
+    <p style="margin:0 0 12px">A password reset was requested for:</p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 16px" cellpadding="8">
+      <tr><td style="border:1px solid #334155;font-size:13px;color:#94a3b8;width:100px">User Email</td><td style="border:1px solid #334155;font-size:14px;color:#ffffff;font-weight:600">${userEmail}</td></tr>
+      <tr><td style="border:1px solid #334155;font-size:13px;color:#94a3b8;width:100px">Status</td><td style="border:1px solid #334155;font-size:14px;color:#ef4444;font-weight:600">NOT FOUND in system</td></tr>
+    </table>
+    <p style="margin:20px 0 0;font-size:12px;color:#64748b">No action needed. This email is not registered in StegShield X.</p>
+  </td></tr>
+  <tr><td style="padding:16px 28px;border-top:1px solid #334155;text-align:center">
+    <p style="font-size:11px;color:#64748b;margin:0">&copy; 2026 StegShield X &mdash; Zero Trust Security System</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>`
+
+    if (this.resendApiKey) {
+      return this.sendViaResend({ to: recipient, from: `"StegShield X Admin" <${from}>`, subject, text, html }).catch((err) => this.logger.error("Failed to send unknown reset email to admin:", err))
+    }
+    this.logger.warn("No RESEND_API_KEY configured — unknown reset email not sent")
+  }
+
   private escapeHtml(value: string): string {
     return value
       .replace(/&/g, "&amp;")
