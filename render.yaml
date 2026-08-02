@@ -31,6 +31,34 @@ services:
         generateValue: true
       - key: SECRET_KEY
         generateValue: true
+      - key: CORS_ORIGIN
+        value: "https://stegshield-x.vercel.app"
+      - key: APP_URL
+        value: "https://stegshield-x.vercel.app"
+      - key: OAUTH_SUCCESS_URL
+        value: "https://stegshield-x.vercel.app/auth/callback"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        value: "https://stegshield-backend.onrender.com/api/auth/google/callback"
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CALLBACK_URL
+        value: "https://stegshield-backend.onrender.com/api/auth/github/callback"
+      - key: AI_SERVICE_URL
+        value: "https://stegshield-ai-service.onrender.com"
+      - key: AI_API_KEY
+        generateValue: true
+      - key: AI_API_KEY_REQUIRED
+        value: "true"
+      - key: COOKIE_DOMAIN
+        value: ".vercel.app"
+      - key: SECURITY_CONTACT_EMAIL
+        value: "sreekarsh44@gmail.com"
       - key: SHARING_DEFAULT_IP_RESTRICTED
         value: "false"
       - key: SHARING_DEFAULT_MAX_DOWNLOADS

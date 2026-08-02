@@ -15,12 +15,13 @@ const GitHubOAuthCallbackGuard = createOAuthCallbackGuard("github")
 const OAUTH_SUCCESS_URL = process.env.OAUTH_SUCCESS_URL || "http://localhost:3000/auth/callback"
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined
 const IS_PROD = process.env.NODE_ENV === "production"
+const IS_CROSS_ORIGIN = IS_PROD && COOKIE_DOMAIN
 
 function setRefreshCookie(res: any, token: string) {
   res.cookie("refresh_token", token, {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: "lax",
+    sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
     path: "/api/auth",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     domain: COOKIE_DOMAIN,
@@ -31,7 +32,7 @@ function setAccessCookie(res: any, token: string) {
   res.cookie("access_token", token, {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: "lax",
+    sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
     path: "/",
     maxAge: 15 * 60 * 1000,
     domain: COOKIE_DOMAIN,
@@ -42,7 +43,7 @@ function clearRefreshCookie(res: any) {
   res.cookie("refresh_token", "", {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: "lax",
+    sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
     path: "/api/auth",
     maxAge: 0,
     domain: COOKIE_DOMAIN,
@@ -53,7 +54,7 @@ function clearAccessCookie(res: any) {
   res.cookie("access_token", "", {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: "lax",
+    sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
     path: "/",
     maxAge: 0,
     domain: COOKIE_DOMAIN,
@@ -64,7 +65,7 @@ function setUserRoleCookie(res: any, role: string) {
   res.cookie("user_role", role || "USER", {
     httpOnly: false,
     secure: IS_PROD,
-    sameSite: "lax",
+    sameSite: IS_CROSS_ORIGIN ? "none" : "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     domain: COOKIE_DOMAIN,
@@ -181,7 +182,7 @@ export class AuthController {
     await this.authService.createSession(req.user.id, "Google OAuth", { ip: extractClientIp(req) })
     setRefreshCookie(res, tokens.refreshToken)
     setAccessCookie(res, tokens.accessToken)
-    return res.redirect(OAUTH_SUCCESS_URL)
+    return res.redirect(`${OAUTH_SUCCESS_URL}?token=${tokens.accessToken}`)
   }
 
   @Get("github")
@@ -195,7 +196,7 @@ export class AuthController {
     await this.authService.createSession(req.user.id, "GitHub OAuth", { ip: extractClientIp(req) })
     setRefreshCookie(res, tokens.refreshToken)
     setAccessCookie(res, tokens.accessToken)
-    return res.redirect(OAUTH_SUCCESS_URL)
+    return res.redirect(`${OAUTH_SUCCESS_URL}?token=${tokens.accessToken}`)
   }
 
   @Post("connect/:provider")
