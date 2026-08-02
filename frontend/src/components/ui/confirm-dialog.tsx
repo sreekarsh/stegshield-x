@@ -54,8 +54,7 @@ export function ConfirmDialog({
       <div className="relative bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 animate-in fade-in zoom-in-95 duration-200">
         <button
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => !loading && onOpenChange(false)}
-          disabled={loading}
+          onClick={() => onOpenChange(false)}
         >
           <X className="h-4 w-4" />
         </button>
@@ -79,7 +78,6 @@ export function ConfirmDialog({
               variant="outline"
               className="flex-1"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
             >
               {cancelLabel}
             </Button>

@@ -266,7 +266,7 @@ export default function HelpPage() {
   }
 
   const handleSupportDialogClose = (open: boolean) => {
-    if (!open && !supportSending) {
+    if (!open) {
       setShowSupportDialog(false)
       setSupportMessage("")
       setSupportCategory("")

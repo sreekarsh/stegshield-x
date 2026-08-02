@@ -189,14 +189,7 @@ export default function EvidenceVaultPage() {
 
   const handleDownload = async (item: EvidenceItem) => {
     try {
-      const { useAuthStore } = await import("@/store/useAuthStore")
-      const token = useAuthStore.getState().accessToken
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/evidence/${item.id}/download`,
-        { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } },
-      )
-      if (!response.ok) throw new Error("Download failed")
-      const blob = await response.blob()
+      const blob = await api.download(`/evidence/${item.id}/download`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -205,8 +198,8 @@ export default function EvidenceVaultPage() {
       URL.revokeObjectURL(url)
       toast.success("Downloaded & logged in custody chain")
       fetchEvidence()
-    } catch {
-      toast.error("Download failed")
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Download failed")
     }
   }
 
