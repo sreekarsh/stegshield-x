@@ -5,7 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from "@nestjs/common";
-import { createHash, createCipheriv, createDecipheriv, randomBytes, createHmac } from "crypto";
+import { createHash, createCipheriv, createDecipheriv, randomBytes, createHmac, randomUUID } from "crypto";
 
 const pbkdf2Sync: (password: string, salt: string, iterations: number, keylen: number, digest: string) => Buffer =
   (require("crypto") as any).pbkdf2Sync;
@@ -275,7 +275,8 @@ export class EvidenceService {
       const fileStats = await stat(file.path);
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-      const encrypted = this.encryptFile(rawBytes, file.originalname);
+      const evidenceId = randomUUID()
+      const encrypted = this.encryptFile(rawBytes, evidenceId);
       const r2Key = `evidence/${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}.enc`;
 
       let filePath = r2Key
@@ -290,6 +291,7 @@ export class EvidenceService {
 
       const evidence = await this.prisma.evidence.create({
         data: {
+          id: evidenceId,
           userId,
           caseId: caseId || undefined,
           name: file.originalname,
@@ -387,10 +389,10 @@ export class EvidenceService {
     let decrypted: Buffer;
     try {
       if (evidence.fileData) {
-        decrypted = this.decryptFile(evidence.fileData, evidence.id);
+        decrypted = this.tryDecrypt(evidence.fileData, evidence.id, evidence.name)
       } else if (evidence.filePath && this.r2.isConfigured) {
         const r2Data = await this.r2.download(evidence.filePath);
-        decrypted = this.decryptFile(r2Data, evidence.id);
+        decrypted = this.tryDecrypt(r2Data, evidence.id, evidence.name)
       } else {
         throw new NotFoundException("Evidence file data not found. This file may have been uploaded before the storage migration. Please re-upload the file.")
       }
@@ -398,6 +400,9 @@ export class EvidenceService {
       const msg = err?.message || "Unknown error"
       if (msg.includes("NoSuchKey") || msg.includes("NotFound") || msg.includes("404")) {
         throw new NotFoundException(`File not found in storage: ${msg}`)
+      }
+      if (msg.includes("Decryption authentication failed")) {
+        throw new ForbiddenException("Decryption failed — the encryption key may have changed or the file was uploaded with a different version. Please re-upload the evidence.")
       }
       throw new ForbiddenException(`Download failed: ${msg}`)
     }
@@ -588,6 +593,14 @@ export class EvidenceService {
     return { total, byStatus: byStatus.map(s => ({ status: s.status, count: s._count.status })), totalSize: totalSize._sum.size || 0, caseCount: cases.length };
   }
 
+  private tryDecrypt(data: Buffer, evidenceId: string, evidenceName: string): Buffer {
+    try {
+      return this.decryptFile(data, evidenceId)
+    } catch {
+      return this.decryptFile(data, evidenceName)
+    }
+  }
+
   async verifyIntegrity(userId: string, evidenceId: string): Promise<{ valid: boolean; expected: string; actual: string }> {
     const evidence = await this.findById(userId, evidenceId);
     if (!evidence.fileData && !(evidence.filePath && this.r2.isConfigured)) {
@@ -596,10 +609,10 @@ export class EvidenceService {
     let decrypted: Buffer;
     try {
       if (evidence.fileData) {
-        decrypted = this.decryptFile(evidence.fileData, evidence.id);
+        decrypted = this.tryDecrypt(evidence.fileData, evidence.id, evidence.name)
       } else {
         const r2Data = await this.r2.download(evidence.filePath!);
-        decrypted = this.decryptFile(r2Data, evidence.id);
+        decrypted = this.tryDecrypt(r2Data, evidence.id, evidence.name)
       }
     } catch {
       return { valid: false, expected: evidence.hash, actual: "DECRYPTION_FAILED" };
