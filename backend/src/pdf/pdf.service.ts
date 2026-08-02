@@ -29,6 +29,17 @@ function getQpdfPath(): string {
   return "qpdf"
 }
 
+function qpdfExists(bin: string): boolean {
+  if (fs.existsSync(bin)) return true
+  try {
+    const result = require("child_process").execSync(`which ${bin}`, { stdio: "pipe", encoding: "utf8" })
+    const p = (result as string).trim()
+    return !!p && fs.existsSync(p)
+  } catch {
+    return false
+  }
+}
+
 const QPDF_PATH = getQpdfPath()
 
 function tmpPdf(suffix: string): string {
@@ -51,7 +62,7 @@ export class PdfService {
   }
 
   async protect(data: Buffer, password: string): Promise<Buffer> {
-    if (!fs.existsSync(QPDF_PATH)) {
+    if (!qpdfExists(QPDF_PATH)) {
       throw new InternalServerErrorException(
         `qpdf not found at ${QPDF_PATH}. Install qpdf or set QPDF_PATH env var.`
       )
@@ -85,7 +96,7 @@ export class PdfService {
   }
 
   async unlock(data: Buffer, password: string): Promise<Buffer> {
-    if (!fs.existsSync(QPDF_PATH)) {
+    if (!qpdfExists(QPDF_PATH)) {
       throw new InternalServerErrorException(
         `qpdf not found at ${QPDF_PATH}. Install qpdf or set QPDF_PATH env var.`
       )
