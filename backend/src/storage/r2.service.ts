@@ -44,12 +44,12 @@ export class R2Service {
     const now = new Date()
     const date = now.toUTCString()
     const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, "")
-    const payloadHash = crypto.createHash("sha256").update(body || "").digest("hex")
+    const payloadHash = crypto.createHash("sha256").update(body || Buffer.alloc(0)).digest("hex")
     const signedHeaders = "host;x-amz-date"
-    const canonicalURI = `/${this.config.bucket}/${encodeURIComponent(key)}`
+    const canonicalURI = `/${this.config.bucket}/${key}`
     const canonicalQueryString = ""
-    const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n`
-    const canonicalRequest = `${method}\n${canonicalURI}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`
+    const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n\n`
+    const canonicalRequest = `${method}\n${canonicalURI}\n${canonicalQueryString}\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`
 
     const algorithm = "AWS4-HMAC-SHA256"
     const credentialScope = `${date.slice(0, 4)}/${date.slice(5, 7)}/${date.slice(8, 10)}/s3/aws4_request`
@@ -66,12 +66,11 @@ export class R2Service {
 
     const authorization = `${algorithm} Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
 
-    const url = `${this.config.endpoint}/${this.config.bucket}/${encodeURIComponent(key)}`
+    const url = `${this.config.endpoint}/${this.config.bucket}/${key}`
     const headers: Record<string, string> = {
       Host: host,
       "X-Amz-Date": amzDate,
       Authorization: authorization,
-      "X-Amz-Content-Sha256": payloadHash,
     }
     if (contentType) headers["Content-Type"] = contentType
     return { url, headers }
