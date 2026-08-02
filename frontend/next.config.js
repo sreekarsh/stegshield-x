@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    turbopack: false,
+    reactCompiler: false,
+  },
+  webpack: (config) => {
+    return config
+  },
   allowedDevOrigins: [
     'localhost:3000',
     '127.0.0.1:3000',
