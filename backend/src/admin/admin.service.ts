@@ -28,7 +28,10 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@stegshield.local"
 
 async function checkAiHealth(url: string): Promise<boolean> {
   try {
-    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    const res = await fetch(`${url}/health`, { signal: controller.signal })
+    clearTimeout(timeout)
     return res.ok
   } catch {
     return false
