@@ -28,9 +28,11 @@ services:
       - key: RESET_TOKEN_SECRET
         generateValue: true
       - key: ENCRYPTION_KEY
-        generateValue: true
+        value: "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b"
       - key: SECRET_KEY
-        generateValue: true
+        value: "1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
+      - key: EVIDENCE_ENCRYPTION_KEY
+        value: "ev1dence_k3y_stegsh1eld_x_pr0duct10n_f1xed"
       - key: CORS_ORIGIN
         value: "https://stegshield-x.vercel.app"
       - key: APP_URL
@@ -67,6 +69,10 @@ services:
         value: "24h"
       - key: SHARING_REQUIRE_PASSWORD
         value: "true"
+      - key: UPLOAD_DIR
+        value: "/tmp/uploads/evidence"
+      - key: UPLOAD_TEMP_DIR
+        value: "/tmp/uploads/evidence/temp"
 
   # Python FastAPI AI Microservice
   - type: web

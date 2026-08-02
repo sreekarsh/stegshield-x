@@ -29,7 +29,7 @@ import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 
 const evidenceStorage = diskStorage({
   destination: (_req, _file, cb) => {
-    const dir = join(process.cwd(), "uploads", "evidence", "temp");
+    const dir = process.env.UPLOAD_TEMP_DIR || join(process.cwd(), "uploads", "evidence", "temp");
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
