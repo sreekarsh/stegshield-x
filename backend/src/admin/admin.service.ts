@@ -256,6 +256,21 @@ export class AdminService {
       throw new BadRequestException("Master Head account (sreekarsh44@gmail.com) cannot be deleted.")
     }
     await this.prisma.$transaction([
+      this.prisma.evidenceShare.deleteMany({ where: { OR: [{ sharedById: id }, { sharedWithId: id }] } }),
+      this.prisma.custodyEntry.deleteMany({ where: { userId: id } }),
+      this.prisma.forensicsReport.deleteMany({ where: { userId: id } }),
+      this.prisma.evidence.deleteMany({ where: { userId: id } }),
+      this.prisma.case.deleteMany({ where: { userId: id } }),
+      this.prisma.organizationUser.deleteMany({ where: { userId: id } }),
+      this.prisma.stegoFile.deleteMany({ where: { userId: id } }),
+      this.prisma.sharedLink.deleteMany({ where: { userId: id } }),
+      this.prisma.watermark.deleteMany({ where: { userId: id } }),
+      this.prisma.timeCapsule.deleteMany({ where: { userId: id } }),
+      this.prisma.decoyVault.deleteMany({ where: { userId: id } }),
+      this.prisma.secretLanguage.deleteMany({ where: { userId: id } }),
+      this.prisma.trustScore.deleteMany({ where: { userId: id } }),
+      this.prisma.report.deleteMany({ where: { userId: id } }),
+      this.prisma.tamperReport.deleteMany({ where: { userId: id } }),
       this.prisma.session.deleteMany({ where: { userId: id } }),
       this.prisma.notification.deleteMany({ where: { userId: id } }),
       this.prisma.auditLog.deleteMany({ where: { userId: id } }),
