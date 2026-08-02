@@ -273,12 +273,6 @@ export class EvidenceService {
       const fileStats = await stat(file.path);
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-      const scanResult = await this.scanForThreats(file.path);
-      if (!scanResult.clean && scanResult.threatScore > 70) {
-        unlinkSync(file.path);
-        throw new BadRequestException(`File rejected: ${scanResult.threats.join(", ")}`);
-      }
-
       const encrypted = this.encryptFile(rawBytes, file.originalname);
 
       const evidence = await this.prisma.evidence.create({
@@ -314,7 +308,7 @@ export class EvidenceService {
         },
       });
 
-      await this.logAudit(userId, "EVIDENCE_UPLOAD", "evidence", evidence.id, { caseId: evidence.caseId, size: fileStats.size, mime, threats: scanResult.threats });
+      this.logAudit(userId, "EVIDENCE_UPLOAD", "evidence", evidence.id, { caseId: evidence.caseId, size: fileStats.size, mime }).catch(() => {})
 
       return this.findById(userId, evidence.id);
     } catch (error) {
@@ -377,12 +371,14 @@ export class EvidenceService {
   async download(userId: string, evidenceId: string, decoyMode = false, fakeVaultId?: string | null): Promise<{ buffer: Buffer; name: string; type: string }> {
     const evidence = await this.findById(userId, evidenceId, decoyMode, fakeVaultId);
 
-    if (!evidence.fileData) throw new NotFoundException("File data not found");
+    if (!evidence.fileData) {
+      throw new NotFoundException("Evidence file data not found. This file may have been uploaded before the storage migration. Please re-upload the file.")
+    }
     let decrypted: Buffer;
     try {
       decrypted = this.decryptFile(evidence.fileData, evidence.id);
     } catch {
-      throw new ForbiddenException("Decryption failed — file may be corrupted or key has changed");
+      throw new ForbiddenException("Decryption failed — file may be corrupted or encryption key has changed")
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -556,7 +552,9 @@ export class EvidenceService {
 
   async verifyIntegrity(userId: string, evidenceId: string): Promise<{ valid: boolean; expected: string; actual: string }> {
     const evidence = await this.findById(userId, evidenceId);
-    if (!evidence.fileData) throw new NotFoundException("File data not found");
+    if (!evidence.fileData) {
+      return { valid: false, expected: evidence.hash, actual: "FILE_DATA_MISSING" };
+    }
     let decrypted: Buffer;
     try {
       decrypted = this.decryptFile(evidence.fileData, evidence.id);
