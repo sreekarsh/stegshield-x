@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
 import { MailService } from "../mail/mail.service"
-import { sanitizeIp } from "../common/utils"
 
 @Injectable()
 export class SupportService {
@@ -15,29 +14,21 @@ export class SupportService {
     const fromEmail = user?.email || "unknown"
     const userName = user?.name || "Unknown user"
 
-    this.mail.sendSupportRequest({
-      fromEmail,
-      userName,
-      message,
-      category,
-      ip,
-    }).catch((err: any) => console.error("Failed to send support request email:", err))
+    this.mail.sendSupportRequest({ fromEmail, userName, message, category, ip })
+      .catch((err: any) => console.error("Failed to send support request email:", err))
 
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          userName,
-          action: "support.contact",
-          resource: "help",
-          ip: sanitizeIp(ip),
-          userAgent: "help-center",
-          metadata: { messageLength: message.length, category: category || undefined },
-        },
-      })
-    } catch (err) {
-      console.error("Support audit failed:", err)
-    }
+    this.prisma.auditLog.create({
+      data: {
+        userId,
+        userName,
+        action: "support.contact",
+        resource: "help",
+        ip,
+        userAgent: "help-center",
+        metadata: { messageLength: message.length, category: category || undefined },
+      },
+    }).catch((err: any) => console.error("Support audit failed:", err))
+
     return { message: "Your support request has been sent. The team will get back to you shortly." }
   }
 }

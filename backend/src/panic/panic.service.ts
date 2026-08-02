@@ -79,7 +79,7 @@ export class PanicService {
       message,
       ip,
     }).catch((err: any) => console.error("Security report email failed:", err))
-    await this.audit(userId, "panic.contact_security", { messageLength: message.length }, ip)
+    this.audit(userId, "panic.contact_security", { messageLength: message.length }, ip).catch(() => {})
     return { message: "Your report has been sent to the security team" }
   }
 

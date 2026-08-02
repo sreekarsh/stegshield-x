@@ -141,9 +141,9 @@ export class TeamService {
           },
         })
       }
-      await this.audit(userId, "invite.pending", "invitation", undefined, { email: dto.email }, ip)
+      this.audit(userId, "invite.pending", "invitation", undefined, { email: dto.email }, ip).catch(() => {})
 
-      await this.mail.sendInvitation({
+      this.mail.sendInvitation({
         to: dto.email,
         invitedByName,
         organizationName: orgName,
@@ -172,11 +172,11 @@ export class TeamService {
         role,
       },
     })
-    await this.audit(userId, "invite.added", "organizationUser", undefined, { email: dto.email, role }, ip)
+    this.audit(userId, "invite.added", "organizationUser", undefined, { email: dto.email, role }, ip).catch(() => {})
     await this.notifications.create(
       targetUser.id,
       "Team Invitation",
-      `${invitedByName} added you to the organization ${orgName} as ${role}`,
+      `${inviter?.name || "A team member"} added you to the organization ${orgName} as ${role}`,
       "info",
     ).catch(() => {})
     return { invited: true, email: dto.email, role, status: "added" }
