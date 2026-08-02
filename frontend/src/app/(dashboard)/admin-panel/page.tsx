@@ -780,10 +780,10 @@ export default function AdminPanelPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {analytics.topActions.map((a, i) => {
-                      const maxCount = analytics.topActions[0].count
+                      const maxCount = analytics.topActions[0].count || 1
                       const pct = Math.round((a.count / maxCount) * 100)
                       return (
-                        <div key={i} className="flex items-center gap-3">
+                        <div key={a.action + i} className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground w-28 truncate text-right">{a.action}</span>
                           <div className="flex-1 h-5 rounded-md bg-muted/50 overflow-hidden">
                             <div
