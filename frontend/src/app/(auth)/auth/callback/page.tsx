@@ -20,26 +20,43 @@ function CallbackInner() {
     const finalError = errorParam || hashError
 
     if (finalError) {
+      console.error("[AuthCallback] Error from OAuth:", finalError)
       setError(finalError)
       return
     }
 
     const initAuth = async () => {
       if (accessToken) {
+        console.log("[AuthCallback] Token found, setting auth state")
         useAuthStore.setState({ accessToken, isAuthenticated: true })
+        if (typeof window !== "undefined") {
+          localStorage.setItem("stegshield_access_token", accessToken)
+        }
         try {
           const res = await fetch(`${API}/users/me`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           })
+          console.log("[AuthCallback] /users/me status:", res.status)
           if (res.ok) {
             const user = await res.json()
+            console.log("[AuthCallback] User fetched:", user.email)
             setUser(user)
+            if (typeof window !== "undefined") {
+              localStorage.setItem("stegshield_user", JSON.stringify(user))
+            }
+          } else {
+            const errText = await res.text()
+            console.error("[AuthCallback] /users/me failed:", res.status, errText)
           }
-        } catch {}
+        } catch (err) {
+          console.error("[AuthCallback] /users/me network error:", err)
+        }
+        console.log("[AuthCallback] Redirecting to /home")
         router.push("/home")
         return
       }
 
+      console.log("[AuthCallback] No token in URL, trying cookie refresh")
       try {
         const res = await fetch(`${API}/auth/refresh`, {
           method: "POST",
@@ -47,17 +64,29 @@ function CallbackInner() {
           body: JSON.stringify({}),
           credentials: "include",
         })
+        console.log("[AuthCallback] /auth/refresh status:", res.status)
         if (res.ok) {
           const data = await res.json()
+          console.log("[AuthCallback] Refresh response:", data.accessToken ? "has token" : "no token")
           if (data.accessToken) {
             useAuthStore.setState({ accessToken: data.accessToken, isAuthenticated: true })
             if (data.user) setUser(data.user)
+            if (typeof window !== "undefined") {
+              localStorage.setItem("stegshield_access_token", data.accessToken)
+              if (data.user) localStorage.setItem("stegshield_user", JSON.stringify(data.user))
+            }
             router.push("/home")
             return
           }
+        } else {
+          const errText = await res.text()
+          console.error("[AuthCallback] /auth/refresh failed:", res.status, errText)
         }
-      } catch {}
+      } catch (err) {
+        console.error("[AuthCallback] /auth/refresh network error:", err)
+      }
 
+      console.error("[AuthCallback] All auth methods failed, showing error")
       setError("Missing authentication token")
     }
 
