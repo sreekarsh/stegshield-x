@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Param, Body, UseGuards, Req } from "@nestjs/common"
+﻿import { Controller, Get, Post, Param, Body, UseGuards, Req, Delete } from "@nestjs/common"
 import { IsString, IsOptional, IsNumber, Min, Max } from "class-validator"
 import { TrustService } from "./trust.service"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
@@ -33,5 +33,11 @@ export class TrustController {
   @UseGuards(JwtAuthGuard)
   async getScore(@Req() req: any, @Param("fileId") fileId: string) {
     return this.trustService.getScore(req.user.id, fileId)
+  }
+
+  @Delete(":fileId")
+  @UseGuards(JwtAuthGuard)
+  async deleteScore(@Req() req: any, @Param("fileId") fileId: string) {
+    return this.trustService.deleteScore(req.user.id, fileId)
   }
 }

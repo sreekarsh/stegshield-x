@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Award, Shield, Lock, Eye, FileText, Upload,
   RefreshCw, Loader2, AlertCircle, Search,
-  X, UploadCloud, Download,
+  X, UploadCloud, Download, Trash2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +49,7 @@ export default function TrustScorePage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const debouncedSearch = useDebounce(searchQuery, 300)
@@ -91,6 +92,20 @@ export default function TrustScorePage() {
       toast.error(err instanceof ApiError ? err.message : "Analysis failed")
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  const handleDelete = async (id: string, fileName: string) => {
+    if (!confirm(`Delete trust score for "${fileName}"? This cannot be undone.`)) return
+    setDeletingId(id)
+    try {
+      await api.delete(`/trust/${id}`)
+      setScores(prev => prev.filter(s => s.id !== id))
+      toast.success("Trust score deleted")
+    } catch {
+      toast.error("Failed to delete trust score")
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -167,10 +182,15 @@ export default function TrustScorePage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="files">File Analysis ({scores.length})</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="files">File Analysis ({scores.length})</TabsTrigger>
+          </TabsList>
+          <Button variant="outline" size="sm" onClick={fetchScores} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           {stats ? (
@@ -355,6 +375,9 @@ export default function TrustScorePage() {
                         toast.success("Report downloaded")
                       }}>
                         <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 ml-2 text-destructive hover:text-destructive" onClick={() => handleDelete(s.id, s.fileName || s.fileId)} disabled={deletingId === s.id}>
+                        {deletingId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       </Button>
                     </div>
                     <div className="grid grid-cols-5 gap-2 text-center text-xs">

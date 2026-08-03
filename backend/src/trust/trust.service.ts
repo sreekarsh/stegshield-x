@@ -142,4 +142,11 @@ export class TrustService {
       take: 50,
     })
   }
+
+  async deleteScore(userId: string, fileId: string) {
+    const score = await this.prisma.trustScore.findFirst({ where: { fileId, userId } })
+    if (!score) throw new NotFoundException("No trust score found for this file")
+    await this.prisma.trustScore.delete({ where: { id: score.id } })
+    return { deleted: true }
+  }
 }
