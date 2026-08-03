@@ -2,19 +2,24 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Shield, Loader2 } from "lucide-react"
+import { Shield, Loader2, Smartphone } from "lucide-react"
 import Link from "next/link"
 import { useAuthStore } from "@/store/useAuthStore"
+import toast from "react-hot-toast"
 
 function CallbackInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { setUser } = useAuthStore()
+  const { setUser, mfaRequired, mfaToken, clearMfa, mfaLogin } = useAuthStore()
   const [error, setError] = useState<string | null>(null)
+  const [mfaCode, setMfaCode] = useState("")
+  const [mfaLoading, setMfaLoading] = useState(false)
 
   useEffect(() => {
     const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
     const accessToken = searchParams.get("token")
+    const mfaRequiredParam = searchParams.get("mfaRequired")
+    const mfaTokenParam = searchParams.get("mfaToken")
     const errorParam = searchParams.get("error")
     const hashError = typeof window !== "undefined" ? new URLSearchParams(window.location.hash.slice(1)).get("error") : null
     const finalError = errorParam || hashError
@@ -22,6 +27,11 @@ function CallbackInner() {
     if (finalError) {
       console.error("[AuthCallback] Error from OAuth:", finalError)
       setError(finalError)
+      return
+    }
+
+    if (mfaRequiredParam === "true" && mfaTokenParam) {
+      useAuthStore.setState({ mfaRequired: true, mfaToken: mfaTokenParam })
       return
     }
 
@@ -93,6 +103,24 @@ function CallbackInner() {
     initAuth()
   }, [router, setUser, searchParams])
 
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mfaToken || !mfaCode.trim()) {
+      toast.error("Enter the 6-digit code from your authenticator app")
+      return
+    }
+    setMfaLoading(true)
+    try {
+      await mfaLogin(mfaToken, mfaCode.trim())
+      toast.success("Welcome!")
+      router.push("/home")
+    } catch {
+      toast.error("Invalid MFA code")
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
   if (error) {
     let displayMessage = "An error occurred during sign in."
     if (error === "access_denied") {
@@ -117,6 +145,59 @@ function CallbackInner() {
           <Link href="/login" className="text-cyber-400 hover:underline font-medium">
             Try again
           </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (mfaRequired && mfaToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-cyber-500/5 p-4">
+        <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
+        <div className="w-full max-w-md relative animate-fade-in">
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+              <Shield className="h-8 w-8 text-cyber-500" />
+              <span className="text-xl font-bold bg-gradient-to-r from-cyber-500 to-cyan-400 bg-clip-text text-transparent">
+                StegShield X
+              </span>
+            </Link>
+            <h1 className="text-2xl font-bold mb-2">Two-Factor Authentication</h1>
+            <p className="text-muted-foreground">Enter the 6-digit code from your authenticator app to complete sign in</p>
+          </div>
+
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Verify Identity</CardTitle>
+              <CardDescription>Open your authenticator app and enter the code</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleMfaSubmit} className="space-y-4">
+                <div className="flex justify-center">
+                  <Smartphone className="h-12 w-12 text-cyber-400 mb-2" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">MFA Code</label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="text-center text-2xl tracking-widest font-mono"
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" className="w-full" variant="cyber" disabled={mfaLoading || mfaCode.length !== 6}>
+                  {mfaLoading ? "Verifying..." : "Verify"}
+                </Button>
+                <Button type="button" variant="ghost" className="w-full" onClick={() => { clearMfa(); router.push("/login") }}>
+                  Cancel
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )

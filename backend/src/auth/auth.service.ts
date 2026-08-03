@@ -335,6 +335,25 @@ export class AuthService {
     return { verified }
   }
 
+  async createMfaChallenge(userId: string, email: string): Promise<string> {
+    return this.jwtService.sign(
+      { sub: userId, email, purpose: "mfa-challenge" },
+      { secret: MFA_CHALLENGE_SECRET, expiresIn: "5m" },
+    )
+  }
+
+  async verifyMfaChallenge(mfaToken: string): Promise<{ sub: string; email: string; purpose: string }> {
+    try {
+      const payload = this.jwtService.verify(mfaToken, { secret: MFA_CHALLENGE_SECRET }) as { sub: string; email: string; purpose: string }
+      if (payload.purpose !== "mfa-challenge") {
+        throw new UnauthorizedException("Invalid MFA challenge token")
+      }
+      return payload
+    } catch {
+      throw new UnauthorizedException("MFA challenge expired or invalid — please log in again")
+    }
+  }
+
   async mfaLogin(mfaToken: string, token: string) {
     let payload: { sub: string; email: string; purpose: string }
     try {
@@ -393,9 +412,45 @@ export class AuthService {
       data: { mfaSecret: null, isMFAEnabled: false },
     })
 
-    await this.audit.logSimple(userId, user.name, AuditActions.AUTH_MFA_SETUP, "user", { action: "disable" })
+    await this.audit.logSimple(userId, user.name, AuditActions.AUTH_MFA_DISABLE, "user")
 
     return { message: "MFA disabled successfully" }
+  }
+
+  async completeMfaChallenge(userId: string, email: string, token: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user?.mfaSecret) throw new UnauthorizedException("MFA not set up")
+    if (!user.isMFAEnabled) throw new UnauthorizedException("MFA is not enabled for this account")
+
+    const normalized = String(token || "").trim()
+    if (!/^\d{6}$/.test(normalized)) throw new BadRequestException("Invalid MFA code format")
+
+    let decryptedSecret: string
+    try {
+      decryptedSecret = decryptMFASecret(user.mfaSecret)
+    } catch {
+      throw new UnauthorizedException("MFA configuration error — contact an administrator")
+    }
+
+    const { totp } = await import("speakeasy")
+    const verified = totp.verify({
+      secret: decryptedSecret,
+      encoding: "base32",
+      token: normalized,
+      window: 1,
+    })
+
+    if (!verified) {
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_VERIFY, "user", { verified: false })
+      throw new UnauthorizedException("Invalid MFA code")
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email)
+    await this.createSession(user.id, "OAuth Login (MFA)", undefined)
+    await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGIN, "user", { email, mfa: true, oauth: true })
+
+    const sanitized = this.sanitizeUser(user)
+    return { user: sanitized, ...tokens }
   }
 
   async disconnectProvider(userId: string, provider: string) {
