@@ -345,12 +345,21 @@ export class AuthService {
     return { message: "All sessions revoked" }
   }
 
-  async generateTokens(userId: string, email: string) {
+  async generateTokens(userId: string, email: string, decoyOptions?: { decoyMode?: boolean; fakeVaultId?: string | null; realVaultId?: string | null }) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { tokenVersion: true },
     })
-    const payload = { sub: userId, email, tokenVersion: user?.tokenVersion ?? 0 }
+    const payload = {
+      sub: userId,
+      email,
+      tokenVersion: user?.tokenVersion ?? 0,
+      ...(decoyOptions?.decoyMode ? {
+        decoyMode: true,
+        fakeVaultId: decoyOptions.fakeVaultId,
+        realVaultId: decoyOptions.realVaultId,
+      } : {}),
+    }
 
     const accessToken = this.jwtService.sign(payload)
     const refreshToken = this.jwtService.sign(payload, {
