@@ -125,9 +125,9 @@ describe("AuthService", () => {
       prisma.user.count.mockResolvedValue(1)
 
       const result = await service.login({ email: "test@test.com", password })
-      expect(result.accessToken).toBe("mock-token")
-      expect(result.refreshToken).toBe("mock-token")
-      expect(result.user).toBeDefined()
+      expect((result as any).accessToken).toBe("mock-token")
+      expect((result as any).refreshToken).toBe("mock-token")
+      expect((result as any).user).toBeDefined()
     })
 
     it("should reject invalid credentials", async () => {
@@ -183,7 +183,7 @@ describe("AuthService", () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ role: "ADMIN" }) }),
       )
-      expect(result.user.role).toBe("ADMIN")
+      expect((result as any).user.role).toBe("ADMIN")
     })
   })
 
