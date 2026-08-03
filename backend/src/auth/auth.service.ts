@@ -93,7 +93,7 @@ export class AuthService {
       },
     })
 
-    const tokens = await this.generateTokens(user.id, user.email)
+    const tokens = await this.generateTokens(user.id, user.email, isDecoyLogin ? { decoyMode: true, fakeVaultId: decoyInfo?.fakeVaultId, realVaultId: decoyInfo?.realVaultId } : undefined)
     await this.createSession(user.id, "New registration", { ip })
 
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_REGISTER, "user", { email: user.email, ip })

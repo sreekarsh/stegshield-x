@@ -10,6 +10,13 @@ export class DecoyVaultGuard implements CanActivate {
     const decoyPassword = req.headers["x-decoy-password"]
     req.decoyMode = false
 
+    if (req.user?.decoyMode) {
+      req.decoyMode = true
+      req.fakeVaultId = req.user.fakeVaultId
+      req.realVaultId = req.user.realVaultId
+      return true
+    }
+
     if (!decoyPassword || !req.user?.id) return true
 
     try {
