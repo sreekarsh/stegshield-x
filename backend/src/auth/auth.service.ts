@@ -254,8 +254,12 @@ export class AuthService {
 
   async setupMFA(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } })
-    const secret = crypto.randomBytes(20).toString("base64")
-    const encrypted = encryptMFASecret(secret)
+    const { totp } = await import("speakeasy")
+    const generated = totp.generateSecret({
+      name: user?.email || userId,
+      issuer: "StegShield X",
+    })
+    const encrypted = encryptMFASecret(generated.base32)
     await this.prisma.user.update({
       where: { id: userId },
       data: { mfaSecret: encrypted },
@@ -263,9 +267,7 @@ export class AuthService {
     if (user) {
       await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_SETUP, "user")
     }
-    const issuer = encodeURIComponent("StegShield X")
-    const label = encodeURIComponent(user?.email || userId)
-    return { secret, otpauth_url: `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30` }
+    return { secret: generated.base32, otpauth_url: generated.otpauth_url }
   }
 
   async verifyMFA(userId: string, token: string) {
@@ -285,7 +287,6 @@ export class AuthService {
     const { totp } = await import("speakeasy")
     const verified = totp.verify({
       secret: decryptedSecret,
-      encoding: "base64",
       token: normalized,
       window: 1,
     })
