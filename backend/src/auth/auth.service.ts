@@ -254,8 +254,8 @@ export class AuthService {
 
   async setupMFA(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } })
-    const { totp } = await import("speakeasy")
-    const generated = totp.generateSecret({
+    const { generateSecret } = await import("speakeasy")
+    const generated = generateSecret({
       name: user?.email || userId,
       issuer: "StegShield X",
     })
