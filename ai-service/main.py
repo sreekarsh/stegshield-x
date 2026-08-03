@@ -3,7 +3,7 @@ import functools
 import httpx
 import logging
 import uuid
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -700,7 +700,7 @@ def format_crack_time(seconds: float) -> str:
     return f"{seconds/31536000:.1f} years"
 
 @app.post("/analyze/password")
-async def analyze_password(data: dict, auth=Depends(verify_auth)):
+async def analyze_password(data: dict = Body(...), auth=Depends(verify_auth)):
     password = data.get("password", "")
     result = calculate_password_strength(password)
     
@@ -730,7 +730,7 @@ async def analyze_password(data: dict, auth=Depends(verify_auth)):
         }
 
 @app.post("/analyze/metadata-risk")
-async def analyze_metadata(data: dict, auth=Depends(verify_auth)):
+async def analyze_metadata(data: dict = Body(...), auth=Depends(verify_auth)):
     metadata = data.get("metadata", {})
     field_keys = " ".join(metadata.keys()).lower()
     risks = []
@@ -1243,7 +1243,7 @@ async def detect_deepfake(file: UploadFile = File(...), auth=Depends(verify_auth
         raise HTTPException(status_code=400, detail=f"Deepfake analysis failed: {str(e)}")
 
 @app.post("/generate/trust-score")
-async def generate_trust_score(data: dict, auth=Depends(verify_auth)):
+async def generate_trust_score(data: dict = Body(...), auth=Depends(verify_auth)):
     file_size = data.get("size", 0)
     file_type = data.get("type", "unknown")
     has_encryption = data.get("has_encryption", False)
@@ -1266,7 +1266,7 @@ async def generate_trust_score(data: dict, auth=Depends(verify_auth)):
     }
 
 @app.post("/analyze/security")
-async def security_analysis(data: dict, auth=Depends(verify_auth)):
+async def security_analysis(data: dict = Body(...), auth=Depends(verify_auth)):
     actions = data.get("recent_actions", [])
     issues = []
     if not data.get("mfa_enabled"):
@@ -1285,7 +1285,7 @@ async def security_analysis(data: dict, auth=Depends(verify_auth)):
     }
 
 @app.post("/generate/secret-language")
-async def generate_secret_language(data: dict, auth=Depends(verify_auth)):
+async def generate_secret_language(data: dict = Body(...), auth=Depends(verify_auth)):
     theme = data.get("theme", "fantasy")
     script_type = data.get("scriptType", "symbolic")
     complexity = data.get("complexity", "medium")
@@ -1846,68 +1846,6 @@ def _greeting() -> str:
         "- **\U0001f511 Encryption** \u2014 Best practices for data protection\n\n"
         "**Ask me a question** or use the tabs above to run analyses."
     )
-
-
-@app.post("/chat/stream")
-async def chat_stream(data: dict, auth=Depends(verify_auth)):
-    messages = data.get("messages", [])
-    model = data.get("model", "gpt-4o-mini")
-    full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
-
-    async def generate():
-        if GITHUB_API_KEY:
-            try:
-                async with httpx.AsyncClient(timeout=60) as client:
-                    async with client.stream(
-                        "POST",
-                        f"{GITHUB_API_BASE}/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {GITHUB_API_KEY}",
-                            "Content-Type": "application/json",
-                        },
-                        json={"model": model, "messages": full_messages, "stream": True},
-                    ) as response:
-                        if not response.is_success:
-                            error_body = await response.aread()
-                            fallback_text = f"*AI service error (HTTP {response.status_code}) — using local fallback*\n\n"
-                            yield f"data: {json.dumps({'content': fallback_text})}\n\n"
-                            for char in generate_local_response(messages):
-                                yield f"data: {json.dumps({'content': char})}\n\n"
-                                await asyncio.sleep(0.015)
-                        else:
-                            async for line in response.aiter_lines():
-                                if line.startswith("data: "):
-                                    raw = line[6:]
-                                    if raw.strip() == "[DONE]":
-                                        break
-                                    try:
-                                        parsed = json.loads(raw)
-                                        if "error" in parsed:
-                                            fallback_text = f"*AI service error: {parsed['error'].get('message', 'unknown')} — using local fallback*\n\n"
-                                            yield f"data: {json.dumps({'content': fallback_text})}\n\n"
-                                            for char in generate_local_response(messages):
-                                                yield f"data: {json.dumps({'content': char})}\n\n"
-                                                await asyncio.sleep(0.015)
-                                            break
-                                        content = parsed["choices"][0]["delta"].get("content", "")
-                                        if content:
-                                            yield f"data: {json.dumps({'content': content})}\n\n"
-                                    except (json.JSONDecodeError, KeyError, IndexError):
-                                        continue
-            except Exception as e:
-                fallback_text = f"*AI service error ({type(e).__name__}) — using local fallback*\n\n"
-                yield f"data: {json.dumps({'content': fallback_text})}\n\n"
-                for char in generate_local_response(messages):
-                    yield f"data: {json.dumps({'content': char})}\n\n"
-                    await asyncio.sleep(0.015)
-        else:
-            for char in generate_local_response(messages):
-                yield f"data: {json.dumps({'content': char})}\n\n"
-                await asyncio.sleep(0.015)
-
-        yield "data: [DONE]\n\n"
-
-    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":
