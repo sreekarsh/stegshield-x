@@ -54,7 +54,7 @@ function redirectToLogin() {
   }
 }
 
-const FETCH_TIMEOUT = 30000 // 30 seconds for normal requests
+const FETCH_TIMEOUT = 45000 // 45 seconds to accommodate Render free tier cold starts
 const UPLOAD_TIMEOUT = 180000 // 3 minutes for uploads/downloads/AI analysis
 
 async function requestWithTimeout(url: string, options: RequestInit, timeout = FETCH_TIMEOUT): Promise<Response> {
