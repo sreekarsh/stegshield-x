@@ -1468,7 +1468,7 @@ def extract_exif_data(img: Image.Image) -> dict:
     try:
         exif_obj = img.getexif()
         if exif_obj:
-            exif_data = dict(exif_obj)
+            exif_data = {tag_id: value for tag_id, value in exif_obj.items()}
     except Exception:
         exif_data = {}
 
