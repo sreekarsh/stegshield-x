@@ -130,7 +130,7 @@ export class MetadataService {
     }
 
     try {
-      const meta = await sharp(buffer).metadata()
+      const meta = await sharp(buffer).withMetadata().metadata()
       const fields: Record<string, string> = {}
       const categories: Record<string, Record<string, string>> = {}
 
@@ -243,7 +243,7 @@ export class MetadataService {
     }
 
     try {
-      const meta = await sharp(buffer).metadata()
+      const meta = await sharp(buffer).withMetadata().metadata()
       const fieldsCount = (meta.exif ? 1 : 0) + (meta.icc ? 1 : 0) + (meta.iptc ? 1 : 0) + (meta.xmp ? 1 : 0)
 
       const cleanBuffer = await sharp(buffer).toBuffer()
