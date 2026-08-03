@@ -102,7 +102,7 @@ export class TeamService {
     })
   }
 
-  async invite(userId: string, dto: { email: string; role: string }, ip?: string) {
+  async invite(userId: string, dto: { email: string; role: string; sendEmail?: boolean }, ip?: string) {
     const membership = await this.getUserOrg(userId)
     if (!membership || membership.role !== "ADMIN") {
       throw new ForbiddenException("Only admins can invite members")
@@ -125,13 +125,14 @@ export class TeamService {
       })
 
       const token = crypto.randomBytes(24).toString("hex")
+      let invitation
       if (existingInvite) {
-        await this.prisma.invitation.update({
+        invitation = await this.prisma.invitation.update({
           where: { id: existingInvite.id },
           data: { token, role },
         })
       } else {
-        await this.prisma.invitation.create({
+        invitation = await this.prisma.invitation.create({
           data: {
             organizationId: membership.organizationId,
             email: dto.email,
@@ -141,18 +142,20 @@ export class TeamService {
           },
         })
       }
-      this.audit(userId, "invite.pending", "invitation", undefined, { email: dto.email }, ip).catch(() => {})
+      this.audit(userId, "invite.pending", "invitation", invitation.id, { email: dto.email }, ip).catch(() => {})
 
-      this.mail.sendInvitation({
-        to: dto.email,
-        invitedByName,
-        organizationName: orgName,
-        role,
-        acceptUrl: `${appUrl}/invitations/${token}`,
-        declineUrl: `${appUrl}/invitations/${token}`,
-      }).catch((err: any) => { console.error("Failed to send invitation email:", err) })
+      if (dto.sendEmail !== false) {
+        this.mail.sendInvitation({
+          to: dto.email,
+          invitedByName,
+          organizationName: orgName,
+          role,
+          acceptUrl: `${appUrl}/invitations/${token}`,
+          declineUrl: `${appUrl}/invitations/${token}`,
+        }).catch((err: any) => { console.error("Failed to send invitation email:", err) })
+      }
 
-      return { invited: true, email: dto.email, status: "pending" }
+      return { invited: true, email: dto.email, status: "pending", invitationId: invitation.id }
     }
 
     const existing = await this.prisma.organizationUser.findUnique({
@@ -450,5 +453,40 @@ export class TeamService {
     await this.prisma.invitation.delete({ where: { id: invitationId } })
     await this.audit(userId, "invite.revoked", "invitation", invitationId, { email: invitation.email }, ip)
     return { revoked: true }
+  }
+
+  async resendInvitation(userId: string, invitationId: string, ip?: string) {
+    const membership = await this.getUserOrg(userId)
+    if (!membership || membership.role !== "ADMIN") {
+      throw new ForbiddenException("Only admins can resend invitations")
+    }
+
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, organizationId: membership.organizationId, status: "PENDING" },
+    })
+    if (!invitation) throw new NotFoundException("Invitation not found or no longer pending")
+
+    const inviter = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+    const invitedByName = inviter?.name || "A team member"
+    const orgName = membership.organization.name
+    const appUrl = process.env.APP_URL || "http://localhost:3000"
+
+    const newToken = crypto.randomBytes(24).toString("hex")
+    await this.prisma.invitation.update({
+      where: { id: invitation.id },
+      data: { token: newToken },
+    })
+
+    this.mail.sendInvitation({
+      to: invitation.email,
+      invitedByName,
+      organizationName: orgName,
+      role: invitation.role,
+      acceptUrl: `${appUrl}/invitations/${newToken}`,
+      declineUrl: `${appUrl}/invitations/${newToken}`,
+    }).catch((err: any) => { console.error("Failed to resend invitation email:", err) })
+
+    this.audit(userId, "invite.resend", "invitation", invitation.id, { email: invitation.email }, ip).catch(() => {})
+    return { resent: true, email: invitation.email }
   }
 }

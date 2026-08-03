@@ -113,6 +113,7 @@ export default function TeamWorkspacePage() {
   const [changingRole, setChangingRole] = useState<string | null>(null)
   const [acceptingToken, setAcceptingToken] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [activeTab, setActiveTab] = useState("members")
@@ -153,8 +154,8 @@ export default function TeamWorkspacePage() {
     if (!inviteEmail.includes("@")) { toast.error("Enter a valid email"); return }
     setInviting(true)
     try {
-      const result = await api.post<{ invited: boolean; email: string; status: string }>("/team/invite", { email: inviteEmail, role: inviteRole })
-      toast.success(result.status === "pending" ? "Invitation created — sent via email and available in Sent Invites" : "Member added to team")
+      const result = await api.post<{ invited: boolean; email: string; status: string }>("/team/invite", { email: inviteEmail, role: inviteRole, sendEmail: false })
+      toast.success(result.status === "pending" ? "Invitation created — use Resend to send the email, or copy the link from Sent Invites" : "Member added to team")
       setInviteEmail("")
       fetchData()
     } catch (err) {
@@ -231,6 +232,19 @@ export default function TeamWorkspacePage() {
       toast.error(err instanceof ApiError ? err.message : "Failed to revoke invitation")
     } finally {
       setRevokingId(null)
+    }
+  }
+
+  const resendInvite = async (id: string) => {
+    setResendingId(id)
+    try {
+      await api.post(`/team/invitations/sent/${id}/resend`)
+      toast.success("Invitation email resent")
+      fetchData()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to resend invitation")
+    } finally {
+      setResendingId(null)
     }
   }
 
@@ -595,13 +609,13 @@ export default function TeamWorkspacePage() {
                   </div>
                 </div>
                 <Button variant="cyber" className="w-full" onClick={handleInvite} disabled={inviting}>
-                  {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                  Send Invitation
+                  {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  Create Invitation
                 </Button>
                 <div className="p-3 rounded-lg bg-muted/30 border border-border text-xs text-muted-foreground flex items-start gap-2">
                   <Link2 className="h-4 w-4 text-cyber-400 shrink-0 mt-0.5" />
                   <span>
-                    If SMTP email is configured, an invitation email is sent automatically. You can also view and copy direct invitation links from the <strong>Sent Invites</strong> tab.
+                    This creates a pending invitation. Use the <strong>Sent Invites</strong> tab to copy the invite link or resend the email.
                   </span>
                 </div>
               </CardContent>
@@ -644,6 +658,15 @@ export default function TeamWorkspacePage() {
                           >
                             {copiedToken === inv.token ? <Check className="mr-1.5 h-3.5 w-3.5 text-success" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
                             {copiedToken === inv.token ? "Copied" : "Copy Link"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resendInvite(inv.id)}
+                            disabled={resendingId === inv.id}
+                          >
+                            {resendingId === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            Resend
                           </Button>
                           <Button
                             variant="outline"

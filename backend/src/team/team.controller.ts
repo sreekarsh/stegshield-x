@@ -81,4 +81,9 @@ export class TeamController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async revokeSentInvitation(@Req() req: any, @Param("id") id: string) { return this.teamService.revokeSentInvitation(req.user.id, id, extractClientIp(req)) }
+
+  @Post("invitations/sent/:id/resend")
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resendInvitation(@Req() req: any, @Param("id") id: string) { return this.teamService.resendInvitation(req.user.id, id, extractClientIp(req)) }
 }
