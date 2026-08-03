@@ -35,9 +35,9 @@ export class TrustController {
     return this.trustService.getScore(req.user.id, fileId)
   }
 
-  @Delete(":fileId")
+  @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteScore(@Req() req: any, @Param("fileId") fileId: string) {
-    return this.trustService.deleteScore(req.user.id, fileId)
+  async deleteScore(@Req() req: any, @Param("id") id: string) {
+    return this.trustService.deleteScore(req.user.id, id)
   }
 }
