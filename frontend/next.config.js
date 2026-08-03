@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {},
   reactCompiler: false,
-  webpack: (config) => {
-    return config
-  },
   allowedDevOrigins: [
     'localhost:3000',
     '127.0.0.1:3000',
