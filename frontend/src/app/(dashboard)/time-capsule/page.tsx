@@ -438,7 +438,7 @@ export default function TimeCapsulePage() {
                             variant={canUnlock && !c.isOpened ? "cyber" : "outline"}
                             size="sm"
                             className="h-8"
-                            disabled={!canUnlock || c.isOpened || opening === c.id}
+                            disabled={!canUnlock || opening === c.id || (c.isOpened && openedCapsule?.id === c.id)}
                             onClick={() => handleOpen(c.id)}
                           >
                             {opening === c.id ? (
