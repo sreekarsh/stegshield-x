@@ -308,6 +308,7 @@ export class AuthService {
     const { totp } = await import("speakeasy")
     const verified = totp.verify({
       secret: decryptedSecret,
+      encoding: "base32",
       token: normalized,
       window: 1,
     })
