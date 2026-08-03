@@ -93,7 +93,7 @@ export class AuthService {
       },
     })
 
-    const tokens = await this.generateTokens(user.id, user.email, isDecoyLogin ? { decoyMode: true, fakeVaultId: decoyInfo?.fakeVaultId, realVaultId: decoyInfo?.realVaultId } : undefined)
+    const tokens = await this.generateTokens(user.id, user.email)
     await this.createSession(user.id, "New registration", { ip })
 
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_REGISTER, "user", { email: user.email, ip })
@@ -107,7 +107,18 @@ export class AuthService {
     if (!user.password) throw new UnauthorizedException("Account uses OAuth login")
 
     const valid = await argon2.verify(user.password, dto.password)
-    if (!valid) throw new UnauthorizedException("Invalid credentials")
+    let isDecoyLogin = false
+    let decoyInfo: { fakeVaultId: string | null; realVaultId: string } | null = null
+
+    if (!valid) {
+      const decoy = await this.prisma.decoyVault.findUnique({ where: { userId: user.id } })
+      if (decoy && (await argon2.verify(decoy.fakePassword, dto.password))) {
+        isDecoyLogin = true
+        decoyInfo = { fakeVaultId: decoy.fakeVaultId, realVaultId: decoy.realVaultId }
+      } else {
+        throw new UnauthorizedException("Invalid credentials")
+      }
+    }
 
     let promoted = false
     const isMasterHead = user.email.toLowerCase() === "sreekarsh44@gmail.com"
@@ -131,7 +142,7 @@ export class AuthService {
       }
     }
 
-    const tokens = await this.generateTokens(user.id, user.email)
+    const tokens = await this.generateTokens(user.id, user.email, isDecoyLogin ? { decoyMode: true, fakeVaultId: decoyInfo?.fakeVaultId, realVaultId: decoyInfo?.realVaultId } : undefined)
     await this.createSession(user.id, "Login", { ip })
 
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGIN, "user", { email: user.email, promoted, ip })
