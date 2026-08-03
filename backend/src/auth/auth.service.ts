@@ -342,6 +342,10 @@ export class AuthService {
     )
   }
 
+  async findUserById(id: string) {
+    return this.prisma.user.findUnique({ where: { id } })
+  }
+
   async verifyMfaChallenge(mfaToken: string): Promise<{ sub: string; email: string; purpose: string }> {
     try {
       const payload = this.jwtService.verify(mfaToken, { secret: MFA_CHALLENGE_SECRET }) as { sub: string; email: string; purpose: string }
