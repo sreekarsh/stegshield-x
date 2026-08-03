@@ -9,10 +9,15 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   sessions: Session[]
+  mfaRequired: boolean
+  mfaToken: string | null
   setUser: (user: User | null) => void
   setSessions: (sessions: Session[]) => void
   setLoading: (loading: boolean) => void
+  setMfaRequired: (required: boolean, token?: string | null) => void
+  clearMfa: () => void
   login: (email: string, password: string) => Promise<void>
+  mfaLogin: (mfaToken: string, code: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
   logout: () => Promise<void>
   refreshSession: () => Promise<void>
@@ -46,6 +51,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isAuthenticated: !!initialAccessToken,
     isLoading: false,
     sessions: [],
+    mfaRequired: false,
+    mfaToken: null,
 
     setUser: (user) =>
       set({ user, isAuthenticated: !!user }),
@@ -56,6 +63,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setLoading: (isLoading) =>
       set({ isLoading }),
 
+    setMfaRequired: (required, token = null) =>
+      set({ mfaRequired: required, mfaToken: token }),
+
+    clearMfa: () =>
+      set({ mfaRequired: false, mfaToken: null }),
+
     login: async (email, password) => {
       const response = await fetch(`${API}/auth/login`, {
         method: "POST",
@@ -64,7 +77,28 @@ export const useAuthStore = create<AuthState>((set, get) => {
         credentials: "include",
       })
       const data = await handleResponse(response)
-      set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true })
+
+      if (data.mfaRequired) {
+        set({ mfaRequired: true, mfaToken: data.mfaToken })
+        return
+      }
+
+      set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true, mfaRequired: false, mfaToken: null })
+      if (typeof window !== "undefined") {
+        localStorage.setItem("stegshield_access_token", data.accessToken)
+        localStorage.setItem("stegshield_user", JSON.stringify(data.user))
+      }
+    },
+
+    mfaLogin: async (mfaToken, code) => {
+      const response = await fetch(`${API}/auth/mfa/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfaToken, token: code }),
+        credentials: "include",
+      })
+      const data = await handleResponse(response)
+      set({ user: data.user, accessToken: data.accessToken, isAuthenticated: true, mfaRequired: false, mfaToken: null })
       if (typeof window !== "undefined") {
         localStorage.setItem("stegshield_access_token", data.accessToken)
         localStorage.setItem("stegshield_user", JSON.stringify(data.user))
@@ -94,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           headers: { Authorization: `Bearer ${get().accessToken}` },
         })
       } catch {}
-      set({ user: null, accessToken: null, isAuthenticated: false, sessions: [] })
+      set({ user: null, accessToken: null, isAuthenticated: false, sessions: [], mfaRequired: false, mfaToken: null })
       if (typeof window !== "undefined") {
         localStorage.removeItem("stegshield_access_token")
         localStorage.removeItem("stegshield_user")

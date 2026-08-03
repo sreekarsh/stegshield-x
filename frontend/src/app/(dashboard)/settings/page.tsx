@@ -103,6 +103,10 @@ export default function SettingsPage() {
   const [smsPhone, setSmsPhone] = useState("")
   const [enablingSms, setEnablingSms] = useState(false)
 
+  const [showDisableMfaModal, setShowDisableMfaModal] = useState(false)
+  const [disableMfaPassword, setDisableMfaPassword] = useState("")
+  const [disablingMfa, setDisablingMfa] = useState(false)
+
   const fetchSessions = async () => {
     setLoadingSessions(true)
     setShowSessionsModal(true)
@@ -168,6 +172,25 @@ export default function SettingsPage() {
       toast.error("Failed to enable SMS authentication")
     } finally {
       setEnablingSms(false)
+    }
+  }
+
+  const handleDisableMfa = async () => {
+    if (!disableMfaPassword.trim()) {
+      toast.error("Enter your password to confirm")
+      return
+    }
+    setDisablingMfa(true)
+    try {
+      await api.post("/auth/mfa/disable", { password: disableMfaPassword })
+      setProfile(prev => prev ? { ...prev, isMFAEnabled: false } : prev)
+      toast.success("MFA disabled successfully")
+      setShowDisableMfaModal(false)
+      setDisableMfaPassword("")
+    } catch {
+      toast.error("Failed to disable MFA. Check your password.")
+    } finally {
+      setDisablingMfa(false)
     }
   }
 
@@ -630,9 +653,13 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={profile?.isMFAEnabled ? "success" : "outline"}>{profile?.isMFAEnabled ? "Enabled" : "Not Enabled"}</Badge>
-                    <Link href="/mfa">
-                      <Button variant="outline" size="sm"><Smartphone className="mr-1 h-3 w-3" /> Setup</Button>
-                    </Link>
+                    {profile?.isMFAEnabled ? (
+                      <Button variant="destructive" size="sm" onClick={() => setShowDisableMfaModal(true)}>Disable</Button>
+                    ) : (
+                      <Link href="/mfa">
+                        <Button variant="outline" size="sm"><Smartphone className="mr-1 h-3 w-3" /> Setup</Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
@@ -1000,6 +1027,28 @@ export default function SettingsPage() {
         variant="destructive"
         loading={deletingAccount}
       />
+
+      <ConfirmDialog
+        open={showDisableMfaModal}
+        onOpenChange={setShowDisableMfaModal}
+        onConfirm={handleDisableMfa}
+        title="Disable Two-Factor Authentication?"
+        description="This will remove MFA from your account. Enter your password to confirm."
+        confirmLabel="Disable MFA"
+        variant="destructive"
+        loading={disablingMfa}
+      >
+        <div className="mt-4 space-y-2">
+          <label className="text-sm font-medium">Current Password</label>
+          <Input
+            type="password"
+            placeholder="Enter your password"
+            value={disableMfaPassword}
+            onChange={(e) => setDisableMfaPassword(e.target.value)}
+            autoFocus
+          />
+        </div>
+      </ConfirmDialog>
 
       {/* Active Sessions Modal */}
       <Dialog open={showSessionsModal} onOpenChange={setShowSessionsModal}>

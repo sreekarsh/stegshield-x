@@ -6,6 +6,8 @@ export const AuditActions = {
   AUTH_PASSWORD_CHANGE: "auth.password.change",
   AUTH_MFA_SETUP: "auth.mfa.setup",
   AUTH_MFA_VERIFY: "auth.mfa.verify",
+  AUTH_MFA_CHALLENGE: "auth.mfa.challenge",
+  AUTH_MFA_DISABLE: "auth.mfa.disable",
   AUTH_OAUTH_LOGIN: "auth.oauth.login",
   AUTH_TOKEN_REFRESH: "auth.token.refresh",
   AUTH_PASSWORD_FORGOT: "auth.password.forgot",

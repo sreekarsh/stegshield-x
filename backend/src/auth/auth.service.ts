@@ -17,6 +17,7 @@ const ADMIN_EMAILS = process.env.ADMIN_EMAIL
 const MFA_KEY: string = process.env.SECRET_KEY || process.env.JWT_SECRET || "stegshield_default_secret_key_mfa_encryption_32bytes"
 const REFRESH_SECRET: string = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET || "stegshield_default_refresh_token_secret_32bytes"
 const RESET_SECRET: string = process.env.RESET_TOKEN_SECRET || process.env.JWT_SECRET || "stegshield_default_reset_token_secret_32bytes"
+const MFA_CHALLENGE_SECRET: string = process.env.MFA_CHALLENGE_SECRET || process.env.JWT_SECRET || "stegshield_mfa_challenge_secret_key_32bytes_long"
 
 const PASSWORD_MIN_LENGTH = 8
 
@@ -160,6 +161,15 @@ export class AuthService {
         user.role = "ADMIN"
         promoted = true
       }
+    }
+
+    if (user.isMFAEnabled) {
+      const challengeToken = this.jwtService.sign(
+        { sub: user.id, email: user.email, purpose: "mfa-challenge" },
+        { secret: MFA_CHALLENGE_SECRET, expiresIn: "5m" },
+      )
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_CHALLENGE, "user", { email: user.email, ip })
+      return { mfaRequired: true, mfaToken: challengeToken }
     }
 
     const tokens = await this.generateTokens(user.id, user.email, isDecoyLogin ? { decoyMode: true, fakeVaultId: decoyInfo?.fakeVaultId, realVaultId: decoyInfo?.realVaultId } : undefined)
@@ -323,6 +333,69 @@ export class AuthService {
     await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_VERIFY, "user", { verified })
 
     return { verified }
+  }
+
+  async mfaLogin(mfaToken: string, token: string) {
+    let payload: { sub: string; email: string; purpose: string }
+    try {
+      payload = this.jwtService.verify(mfaToken, { secret: MFA_CHALLENGE_SECRET }) as { sub: string; email: string; purpose: string }
+    } catch {
+      throw new UnauthorizedException("MFA challenge expired or invalid — please log in again")
+    }
+    if (payload.purpose !== "mfa-challenge") {
+      throw new UnauthorizedException("Invalid MFA challenge token")
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } })
+    if (!user?.mfaSecret) throw new UnauthorizedException("MFA not set up")
+    if (!user.isMFAEnabled) throw new UnauthorizedException("MFA is not enabled for this account")
+
+    const normalized = String(token || "").trim()
+    if (!/^\d{6}$/.test(normalized)) throw new BadRequestException("Invalid MFA code format")
+
+    let decryptedSecret: string
+    try {
+      decryptedSecret = decryptMFASecret(user.mfaSecret)
+    } catch {
+      throw new UnauthorizedException("MFA configuration error — contact an administrator")
+    }
+
+    const { totp } = await import("speakeasy")
+    const verified = totp.verify({
+      secret: decryptedSecret,
+      encoding: "base32",
+      token: normalized,
+      window: 1,
+    })
+
+    if (!verified) {
+      await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_VERIFY, "user", { verified: false })
+      throw new UnauthorizedException("Invalid MFA code")
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email)
+    await this.createSession(user.id, "Login (MFA)", undefined)
+
+    await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_LOGIN, "user", { email: user.email, mfa: true })
+
+    const sanitized = this.sanitizeUser(user)
+    return { user: sanitized, ...tokens }
+  }
+
+  async disableMFA(userId: string, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user?.password) throw new BadRequestException("OAuth accounts cannot disable MFA from here")
+    const valid = await argon2.verify(user.password, password)
+    if (!valid) throw new UnauthorizedException("Password is incorrect")
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mfaSecret: null, isMFAEnabled: false },
+    })
+
+    await this.audit.logSimple(userId, user.name, AuditActions.AUTH_MFA_SETUP, "user", { action: "disable" })
+
+    return { message: "MFA disabled successfully" }
   }
 
   async disconnectProvider(userId: string, provider: string) {
