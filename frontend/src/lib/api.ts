@@ -1,6 +1,11 @@
 import { useAuthStore } from "@/store/useAuthStore"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"
+const API_BASE = rawApiUrl.replace(/\/$/, "")
+
+if (typeof window !== "undefined" && process.env.NODE_ENV === "production" && rawApiUrl.includes("localhost")) {
+  console.error("[api] NEXT_PUBLIC_API_URL is not set in production. API calls will fail. Set it in Vercel Settings → Environment Variables.")
+}
 
 interface ApiOptions extends RequestInit {
   params?: Record<string, string>
