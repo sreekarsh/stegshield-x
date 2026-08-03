@@ -29,6 +29,26 @@ function validatePassword(password: string): void {
   }
 }
 
+function generateBase32Secret(length: number = 20): string {
+  const bytes = crypto.randomBytes(length)
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+  let bits = 0
+  let val = 0
+  let result = ""
+  for (let i = 0; i < bytes.length; i++) {
+    val = (val << 8) | bytes[i]
+    bits += 8
+    while (bits >= 5) {
+      result += alphabet[(val >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+  }
+  if (bits > 0) {
+    result += alphabet[(val << (5 - bits)) & 31]
+  }
+  return result
+}
+
 function encryptMFASecret(plaintext: string): string {
   const key = crypto.createHash("sha256").update(MFA_KEY).digest()
   const iv = crypto.randomBytes(12)
@@ -254,12 +274,8 @@ export class AuthService {
 
   async setupMFA(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } })
-    const { generateSecret } = await import("speakeasy")
-    const generated = generateSecret({
-      name: user?.email || userId,
-      issuer: "StegShield X",
-    })
-    const encrypted = encryptMFASecret(generated.base32)
+    const secret = generateBase32Secret(20)
+    const encrypted = encryptMFASecret(secret)
     await this.prisma.user.update({
       where: { id: userId },
       data: { mfaSecret: encrypted },
@@ -267,7 +283,12 @@ export class AuthService {
     if (user) {
       await this.audit.logSimple(user.id, user.name, AuditActions.AUTH_MFA_SETUP, "user")
     }
-    return { secret: generated.base32, otpauth_url: generated.otpauth_url }
+    const label = encodeURIComponent(user?.email || userId)
+    const issuer = encodeURIComponent("StegShield X")
+    return {
+      secret,
+      otpauth_url: `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`,
+    }
   }
 
   async verifyMFA(userId: string, token: string) {
