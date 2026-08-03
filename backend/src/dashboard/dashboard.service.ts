@@ -25,37 +25,35 @@ function getUptime(): string {
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getSummary() {
-    const [users, verifiedUsers, evidence, messages, keys, storageAgg, activeSessions, organizations, forensicsReports] = await Promise.all([
+  async getSummary(userId: string) {
+    const [userEvidence, userEvidenceSize, userMessages, userKeys, userCases, userReports, userSessions, allUsers] = await Promise.all([
+      this.prisma.evidence.count({ where: { userId } }),
+      this.prisma.evidence.aggregate({ where: { userId }, _sum: { size: true } }),
+      this.prisma.message.count({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } }),
+      this.prisma.encryptionKey.count({ where: { userId } }),
+      this.prisma.case.count({ where: { userId } }),
+      this.prisma.forensicsReport.count({ where: { userId } }),
+      this.prisma.session.count({ where: { userId, isCurrent: true } }),
       this.prisma.user.count(),
-      this.prisma.user.count({ where: { isVerified: true } }),
-      this.prisma.evidence.count(),
-      this.prisma.message.count(),
-      this.prisma.encryptionKey.count(),
-      this.prisma.evidence.aggregate({ _sum: { size: true } }),
-      this.prisma.session.count({ where: { isCurrent: true } }),
-      this.prisma.organization.count(),
-      this.prisma.forensicsReport.count(),
     ])
 
-    const totalBytes = storageAgg._sum.size || 0
+    const userBytes = userEvidenceSize._sum.size || 0
 
     const dbHealthy = await this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false)
     const health = dbHealthy ? "healthy" : "down"
 
     return {
-      users,
-      verifiedUsers,
-      evidence,
-      messages,
-      keys,
-      storageUsed: formatBytes(totalBytes),
-      storageBytes: totalBytes,
+      users: allUsers,
+      evidence: userEvidence,
+      messages: userMessages,
+      keys: userKeys,
+      cases: userCases,
+      reports: userReports,
+      storageUsed: formatBytes(userBytes),
+      storageBytes: userBytes,
       systemHealth: health,
       uptime: getUptime(),
-      activeSessions,
-      organizations,
-      forensicsReports,
+      activeSessions: userSessions,
     }
   }
 }

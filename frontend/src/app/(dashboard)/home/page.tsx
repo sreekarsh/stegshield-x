@@ -25,22 +25,20 @@ interface AuditEntry {
 
 interface AdminStats {
   users: number
-  verifiedUsers: number
   evidence: number
   messages: number
   keys: number
+  cases: number
+  reports: number
   storageUsed: string
   storageBytes: number
   systemHealth: string
   uptime: string
   activeSessions: number
-  organizations: number
-  forensicsReports: number
 }
 
 interface ChartPoint {
   time: string
-  users: number
   evidence: number
   messages: number
   keys: number
@@ -59,7 +57,6 @@ function generateInitialHistory(s: AdminStats): ChartPoint[] {
     
     points.push({
       time: timeStr,
-      users: Math.max(0, Math.round(s.users * factor)),
       evidence: Math.max(0, Math.round(s.evidence * factor)),
       messages: Math.max(0, Math.round(s.messages * factor)),
       keys: Math.max(0, Math.round(s.keys * factor)),
@@ -70,7 +67,6 @@ function generateInitialHistory(s: AdminStats): ChartPoint[] {
 }
 
 const CHART_SERIES = [
-  { key: "users" as const, label: "Users", color: "#22c55e", gradId: "gradUsers", accessor: (s: AdminStats) => s.users },
   { key: "evidence" as const, label: "Evidence", color: "#a855f7", gradId: "gradEvidence", accessor: (s: AdminStats) => s.evidence },
   { key: "messages" as const, label: "Messages", color: "#3b82f6", gradId: "gradMessages", accessor: (s: AdminStats) => s.messages },
   { key: "keys" as const, label: "Keys", color: "#f59e0b", gradId: "gradKeys", accessor: (s: AdminStats) => s.keys },
@@ -127,7 +123,6 @@ export default function DashboardPage() {
 
         const point: ChartPoint = {
           time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }),
-          users: s.users,
           evidence: s.evidence,
           messages: s.messages,
           keys: s.keys,
@@ -193,9 +188,9 @@ export default function DashboardPage() {
 
   const statCards = [
     { title: "System Health", value: health === "healthy" ? "94%" : health === "degraded" ? "58%" : "--", change: health || "N/A", icon: CheckCircle, color: health === "healthy" ? "text-success" : "text-warning", bg: health === "healthy" ? "bg-success/10" : "bg-warning/10", progress: health === "healthy" ? 94 : 58 },
-    { title: "Storage Used", value: stats?.storageUsed || "0 B", change: `${stats?.evidence || 0} evidence items`, icon: HardDrive, color: "text-info", bg: "bg-info/10", progress: storagePercent },
-    { title: "Total Users", value: String(stats?.users || 0), change: `${stats?.verifiedUsers || 0} verified`, icon: Users, color: "text-cyber-400", bg: "bg-cyber-500/10", progress: stats?.users ? Math.round((stats.verifiedUsers / stats.users) * 100) : 0 },
-    { title: "Messages Sent", value: String(stats?.messages || 0), change: `${stats?.keys || 0} active keys`, icon: Shield, color: "text-cyber-400", bg: "bg-cyber-500/10", progress: stats?.messages ? Math.min(Math.round(stats.messages / 1000 * 100), 100) : 0 },
+    { title: "My Storage", value: stats?.storageUsed || "0 B", change: `${stats?.evidence || 0} evidence items`, icon: HardDrive, color: "text-info", bg: "bg-info/10", progress: storagePercent },
+    { title: "My Evidence", value: String(stats?.evidence || 0), change: `${stats?.cases || 0} cases`, icon: Shield, color: "text-cyber-400", bg: "bg-cyber-500/10", progress: stats?.evidence ? Math.min(Math.round((stats.evidence / 100) * 100), 100) : 0 },
+    { title: "My Messages", value: String(stats?.messages || 0), change: `${stats?.keys || 0} encryption keys`, icon: ActivitySquare, color: "text-cyber-400", bg: "bg-cyber-500/10", progress: stats?.messages ? Math.min(Math.round((stats.messages / 100) * 100), 100) : 0 },
   ]
 
   const exportPdf = () => {
@@ -203,20 +198,18 @@ export default function DashboardPage() {
     const now = new Date()
     const dateStr = now.toLocaleString()
     const rows = [
-      { label: "System Health", value: stats.systemHealth || "N/A", icon: "🟢" },
-      { label: "Total Users", value: String(stats.users), icon: "👥" },
-      { label: "Verified Users", value: String(stats.verifiedUsers), icon: "✅" },
-      { label: "Evidence Items", value: String(stats.evidence), icon: "🗄️" },
+      { label: "My Evidence", value: String(stats.evidence), icon: "🗄️" },
       { label: "Encrypted Messages", value: String(stats.messages), icon: "💬" },
       { label: "Active Keys", value: String(stats.keys), icon: "🔑" },
+      { label: "Cases", value: String(stats.cases), icon: "📁" },
+      { label: "Reports", value: String(stats.reports), icon: "🔍" },
       { label: "Storage Used", value: stats.storageUsed, icon: "💾" },
       { label: "System Uptime", value: stats.uptime || "N/A", icon: "⏱️" },
       { label: "Active Sessions", value: String(stats.activeSessions), icon: "📡" },
-      { label: "Organizations", value: String(stats.organizations), icon: "🏢" },
-      { label: "Forensics Reports", value: String(stats.forensicsReports), icon: "🔍" },
+      { label: "System Health", value: stats.systemHealth || "N/A", icon: "🟢" },
     ]
     const historyTableRows = history.slice(-10).map(h =>
-      `<tr><td>${h.time}</td><td>${h.users}</td><td>${h.evidence}</td><td>${h.messages}</td><td>${h.keys}</td></tr>`
+      `<tr><td>${h.time}</td><td>${h.evidence}</td><td>${h.messages}</td><td>${h.keys}</td></tr>`
     ).join("")
     const activityRows = recentActivity.slice(0, 10).map(a =>
       `<tr><td>${new Date(a.createdAt).toLocaleString()}</td><td>${a.userName}</td><td>${a.action}</td><td>${a.resource}</td></tr>`
@@ -316,20 +309,18 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">{statsError ? statsErrorMessage : stats?.systemHealth ? `System status: ${stats.systemHealth}` : "Loading..."}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => {
+          <Button variant="outline" size="sm"           onClick={() => {
             const rows = [
               ["Metric", "Value"],
-              ["Users", String(stats?.users ?? 0)],
-              ["Verified Users", String(stats?.verifiedUsers ?? 0)],
               ["Evidence", String(stats?.evidence ?? 0)],
               ["Messages", String(stats?.messages ?? 0)],
               ["Keys", String(stats?.keys ?? 0)],
+              ["Cases", String(stats?.cases ?? 0)],
+              ["Reports", String(stats?.reports ?? 0)],
               ["Storage", stats?.storageUsed ?? "0 B"],
               ["Health", stats?.systemHealth ?? "N/A"],
               ["Uptime", stats?.uptime ?? "N/A"],
               ["Active Sessions", String(stats?.activeSessions ?? 0)],
-              ["Organizations", String(stats?.organizations ?? 0)],
-              ["Forensics Reports", String(stats?.forensicsReports ?? 0)],
             ]
             const csv = rows.map((r) => r.join(",")).join("\n")
             const blob = new Blob([csv], { type: "text/csv" }); const url = URL.createObjectURL(blob)
@@ -463,7 +454,7 @@ export default function DashboardPage() {
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            {statsError ? (
+             {statsError ? (
               <Card className="glass-card sm:col-span-3">
                 <CardContent className="p-4 text-center text-sm text-muted-foreground">Stats unavailable</CardContent>
               </Card>
@@ -477,15 +468,15 @@ export default function DashboardPage() {
             <Card className="glass-card">
               <CardContent className="p-4 text-center">
                 <Shield className="h-6 w-6 text-success mx-auto mb-2" />
-                <div className="text-lg font-bold">{stats?.users || 0}</div>
-                <div className="text-xs text-muted-foreground">Total Users</div>
+                <div className="text-lg font-bold">{stats?.evidence || 0}</div>
+                <div className="text-xs text-muted-foreground">Evidence</div>
               </CardContent>
             </Card>
             <Card className="glass-card">
               <CardContent className="p-4 text-center">
                 <Lock className="h-6 w-6 text-info mx-auto mb-2" />
                 <div className="text-lg font-bold">{stats?.keys || 0}</div>
-                <div className="text-xs text-muted-foreground">Encryption Keys</div>
+                <div className="text-xs text-muted-foreground">Keys</div>
               </CardContent>
             </Card></>)}
           </div>
@@ -544,11 +535,11 @@ export default function DashboardPage() {
                   <Badge variant={stats?.systemHealth === "healthy" ? "success" : stats?.systemHealth === "degraded" ? "warning" : "destructive"}>{stats?.systemHealth || "--"}</Badge>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <span className="text-sm">Users</span>
-                  <span className="text-sm font-medium">{stats?.users || 0}</span>
+                  <span className="text-sm">My Evidence</span>
+                  <span className="text-sm font-medium">{stats?.evidence || 0}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <span className="text-sm">Storage</span>
+                  <span className="text-sm">My Storage</span>
                   <span className="text-sm font-medium">{stats?.storageUsed || "--"}</span>
                 </div>
               </div>
