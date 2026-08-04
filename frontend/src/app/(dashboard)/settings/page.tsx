@@ -99,10 +99,6 @@ export default function SettingsPage() {
   const [loginHistory, setLoginHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  const [showSmsModal, setShowSmsModal] = useState(false)
-  const [smsPhone, setSmsPhone] = useState("")
-  const [enablingSms, setEnablingSms] = useState(false)
-
   const [showDisableMfaModal, setShowDisableMfaModal] = useState(false)
   const [disableMfaPassword, setDisableMfaPassword] = useState("")
   const [disablingMfa, setDisablingMfa] = useState(false)
@@ -154,24 +150,6 @@ export default function SettingsPage() {
       toast.error("Failed to fetch login history")
     } finally {
       setLoadingHistory(false)
-    }
-  }
-
-  const handleEnableSms = async () => {
-    if (!smsPhone || smsPhone.length < 7) {
-      toast.error("Please enter a valid phone number")
-      return
-    }
-    setEnablingSms(true)
-    try {
-      await api.patch("/users/me", { phone: smsPhone })
-      toast.success("SMS 2FA enabled! Verification code sent to " + smsPhone)
-      setPhone(smsPhone)
-      setShowSmsModal(false)
-    } catch {
-      toast.error("Failed to enable SMS authentication")
-    } finally {
-      setEnablingSms(false)
     }
   }
 
@@ -663,13 +641,6 @@ export default function SettingsPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div>
-                    <p className="text-sm font-medium">SMS Authentication</p>
-                    <p className="text-xs text-muted-foreground">Receive codes via text message</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => { setSmsPhone(phone || ""); setShowSmsModal(true) }}>Enable</Button>
-                </div>
                 <Separator />
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <div>
@@ -1159,41 +1130,8 @@ export default function SettingsPage() {
       </Dialog>
 
       {/* SMS Authentication Modal */}
-      <Dialog open={showSmsModal} onOpenChange={setShowSmsModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5 text-cyber-400" />
-              Enable SMS 2FA
-            </DialogTitle>
-            <DialogDescription>
-              Enter your mobile phone number to receive security verification codes via text message.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-3">
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Mobile Phone Number</label>
-              <Input
-                type="tel"
-                value={smsPhone}
-                onChange={e => setSmsPhone(e.target.value)}
-                placeholder="+1 (555) 019-2834"
-              />
-            </div>
-
-            <Button
-              variant="cyber"
-              className="w-full"
-              disabled={enablingSms}
-              onClick={handleEnableSms}
-            >
-              {enablingSms ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Enable SMS Security
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* SMS Authentication Modal removed */}
     </div>
   )
 }
+
