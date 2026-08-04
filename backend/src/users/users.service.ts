@@ -176,6 +176,8 @@ export class UsersService {
           userName: user.name,
           action: AuditActions.USER_SETTINGS_UPDATED,
           resource: "user",
+          ip: "unknown",
+          userAgent: "Browser",
           metadata: { keys: Object.keys(settings) },
         },
       })
