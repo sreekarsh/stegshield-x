@@ -91,6 +91,15 @@ export class AuditService {
     return { logs, total, page, limit }
   }
 
+  async getLogsForUser(userId: string, page = 1, limit = 50) {
+    const where = { userId }
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: "desc" } }),
+      this.prisma.auditLog.count({ where }),
+    ])
+    return { logs, total, page, limit }
+  }
+
   async cleanOldLogs(retentionDays: number): Promise<number> {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - retentionDays)

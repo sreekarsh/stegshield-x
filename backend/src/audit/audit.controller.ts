@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from "@nestjs/common"
+﻿import { Controller, Get, Post, Query, UseGuards, ParseIntPipe, DefaultValuePipe, Req } from "@nestjs/common"
 import { AuditService } from "./audit.service"
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard"
 import { RolesGuard } from "../common/guards/roles.guard"
@@ -9,12 +9,18 @@ import { AuthGuard } from "@nestjs/passport"
 
 @ApiTags("Audit")
 @Controller("audit")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.OWNER)
+@UseGuards(JwtAuthGuard)
 export class AuditController {
   constructor(private auditService: AuditService) {}
 
+  @Get("me")
+  async getMyLogs(@Req() req: any, @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number, @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number) {
+    return this.auditService.getLogsForUser(req.user.id, page, Math.min(limit, 100))
+  }
+
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER)
   async getLogs(
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query("limit", new DefaultValuePipe(50), ParseIntPipe) limit: number,
@@ -27,8 +33,9 @@ export class AuditController {
   }
 
   @Post("clean")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER)
   async cleanOldLogs(@Query("retentionDays", new DefaultValuePipe(90), ParseIntPipe) retentionDays: number) {
-    const deleted = await this.auditService.cleanOldLogs(retentionDays)
-    return { deleted, retentionDays }
+    return this.auditService.cleanOldLogs(retentionDays)
   }
 }

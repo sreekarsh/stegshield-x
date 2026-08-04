@@ -142,14 +142,14 @@ export default function SettingsPage() {
     setLoadingHistory(true)
     setShowHistoryModal(true)
     try {
-      const data = await api.get<any>("/audit?limit=30")
-      const items = data?.items || data || []
-      const filtered = (Array.isArray(items) ? items : []).filter((i: any) => 
-        String(i.action || "").includes("AUTH_") || 
-        String(i.action || "").includes("LOGIN") ||
-        String(i.entity || "").includes("user")
+      const data = await api.get<{ logs: any[]; total: number }>("/audit/me?limit=30")
+      const items = data.logs || []
+      const filtered = items.filter((l: any) => 
+        String(l.action || "").includes("AUTH_") || 
+        String(l.action || "").includes("LOGIN") ||
+        String(l.resource || "").includes("user")
       )
-      setLoginHistory(filtered.length > 0 ? filtered : (Array.isArray(items) ? items.slice(0, 10) : []))
+      setLoginHistory(filtered.length > 0 ? filtered : items.slice(0, 10))
     } catch {
       toast.error("Failed to fetch login history")
     } finally {
@@ -314,8 +314,9 @@ export default function SettingsPage() {
     setChangingPassword(true); setShowPasswordConfirm(false)
     try {
       await api.post("/auth/change-password", { currentPassword, newPassword })
-      toast.success("Password updated — please log in again")
+      toast.success("Password updated — redirecting to login")
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("")
+      setTimeout(() => useAuthStore.getState().logout(), 500)
     } catch (e: any) {
       toast.error(e?.data?.message || "Failed to change password")
     } finally {
