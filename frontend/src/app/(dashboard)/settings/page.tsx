@@ -379,29 +379,40 @@ export default function SettingsPage() {
     }
   }
 
-  const saveSettings = async (settings: Record<string, any>) => {
+  const saveSettings = async (settings: Record<string, any>, rollback?: () => void) => {
     setSavingSettings(true)
     try {
       await api.patch("/users/me/settings", settings)
-    } catch { /* ignore */ }
-    setSavingSettings(false)
+    } catch (e: any) {
+      const msg = e?.data?.message || e?.message || "Failed to save settings"
+      toast.error(msg)
+      rollback?.()
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>()
+  const debouncedSave = (settings: Record<string, any>, rollback?: () => void) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => saveSettings(settings, rollback), 300)
   }
 
   const toggleNotifEmail = () => {
     const next = !notifEmail; setNotifEmail(next)
-    saveSettings({ notifications: { email: next, push: notifPush, inApp: notifInApp, quietHours, quietHoursFrom, quietHoursTo } })
+    saveSettings({ notifications: { email: next, push: notifPush, inApp: notifInApp, quietHours, quietHoursFrom, quietHoursTo } }, () => setNotifEmail(!next))
   }
   const toggleNotifPush = () => {
     const next = !notifPush; setNotifPush(next)
-    saveSettings({ notifications: { email: notifEmail, push: next, inApp: notifInApp, quietHours, quietHoursFrom, quietHoursTo } })
+    saveSettings({ notifications: { email: notifEmail, push: next, inApp: notifInApp, quietHours, quietHoursFrom, quietHoursTo } }, () => setNotifPush(!next))
   }
   const toggleNotifInApp = () => {
     const next = !notifInApp; setNotifInApp(next)
-    saveSettings({ notifications: { email: notifEmail, push: notifPush, inApp: next, quietHours, quietHoursFrom, quietHoursTo } })
+    saveSettings({ notifications: { email: notifEmail, push: notifPush, inApp: next, quietHours, quietHoursFrom, quietHoursTo } }, () => setNotifInApp(!next))
   }
   const toggleQuietHours = () => {
     const next = !quietHours; setQuietHours(next)
-    saveSettings({ notifications: { email: notifEmail, push: notifPush, inApp: notifInApp, quietHours: next, quietHoursFrom, quietHoursTo } })
+    saveSettings({ notifications: { email: notifEmail, push: notifPush, inApp: notifInApp, quietHours: next, quietHoursFrom, quietHoursTo } }, () => setQuietHours(!next))
   }
 
   const currentTheme = useUIStore((s) => s.theme)
@@ -893,7 +904,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Profile Visibility</p>
                     <p className="text-xs text-muted-foreground">Make your profile visible to other users</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => { const next = !profileVisible; setProfileVisible(next); saveSettings({ privacy: { profileVisibility: next, activityStatus: activityVisible, searchIndexing, shareUsageData } }) }}>
+                  <Button variant="ghost" size="icon" disabled={savingSettings} onClick={() => { const next = !profileVisible; setProfileVisible(next); debouncedSave({ privacy: { profileVisibility: next, activityStatus: activityVisible, searchIndexing, shareUsageData } }, () => setProfileVisible(!next)) }}>
                     {profileVisible ? <ToggleRight className="h-6 w-6 text-cyber-500" /> : <ToggleLeft className="h-6 w-6 text-muted-foreground" />}
                   </Button>
                 </div>
@@ -902,7 +913,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Activity Status</p>
                     <p className="text-xs text-muted-foreground">Show when you are active</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => { const next = !activityVisible; setActivityVisible(next); saveSettings({ privacy: { profileVisibility: profileVisible, activityStatus: next, searchIndexing, shareUsageData } }) }}>
+                  <Button variant="ghost" size="icon" disabled={savingSettings} onClick={() => { const next = !activityVisible; setActivityVisible(next); debouncedSave({ privacy: { profileVisibility: profileVisible, activityStatus: next, searchIndexing, shareUsageData } }, () => setActivityVisible(!next)) }}>
                     {activityVisible ? <ToggleRight className="h-6 w-6 text-cyber-500" /> : <ToggleLeft className="h-6 w-6 text-muted-foreground" />}
                   </Button>
                 </div>
@@ -911,7 +922,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Search Indexing</p>
                     <p className="text-xs text-muted-foreground">Allow search engines to index your profile</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => { const next = !searchIndexing; setSearchIndexing(next); saveSettings({ privacy: { profileVisibility: profileVisible, activityStatus: activityVisible, searchIndexing: next, shareUsageData } }) }}>
+                  <Button variant="ghost" size="icon" disabled={savingSettings} onClick={() => { const next = !searchIndexing; setSearchIndexing(next); debouncedSave({ privacy: { profileVisibility: profileVisible, activityStatus: activityVisible, searchIndexing: next, shareUsageData } }, () => setSearchIndexing(!next)) }}>
                     {searchIndexing ? <ToggleRight className="h-6 w-6 text-cyber-500" /> : <ToggleLeft className="h-6 w-6 text-muted-foreground" />}
                   </Button>
                 </div>
@@ -920,7 +931,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">Share Usage Data</p>
                     <p className="text-xs text-muted-foreground">Help us improve by sharing anonymized usage data</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => { const next = !shareUsageData; setShareUsageData(next); saveSettings({ privacy: { profileVisibility: profileVisible, activityStatus: activityVisible, searchIndexing, shareUsageData: next } }) }}>
+                  <Button variant="ghost" size="icon" disabled={savingSettings} onClick={() => { const next = !shareUsageData; setShareUsageData(next); debouncedSave({ privacy: { profileVisibility: profileVisible, activityStatus: activityVisible, searchIndexing, shareUsageData: next } }, () => setShareUsageData(!next)) }}>
                     {shareUsageData ? <ToggleRight className="h-6 w-6 text-cyber-500" /> : <ToggleLeft className="h-6 w-6 text-muted-foreground" />}
                   </Button>
                 </div>

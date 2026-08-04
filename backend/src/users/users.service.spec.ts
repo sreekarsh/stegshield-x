@@ -44,6 +44,9 @@ describe("UsersService", () => {
         count: jest.fn().mockResolvedValue(10),
         findMany: jest.fn().mockResolvedValue([mockUser]),
       },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
     }
 
     audit = { logSimple: jest.fn().mockResolvedValue(undefined) }
@@ -143,6 +146,27 @@ describe("UsersService", () => {
     it("should throw NotFoundException if user not found", async () => {
       prisma.user.findUnique.mockResolvedValue(null)
       await expect(service.updateSettings("bad-id", {})).rejects.toThrow(NotFoundException)
+    })
+
+    it("should throw BadRequestException for non-object settings", async () => {
+      await expect(service.updateSettings("user-1", null as any)).rejects.toThrow(BadRequestException)
+      await expect(service.updateSettings("user-1", "string" as any)).rejects.toThrow(BadRequestException)
+      await expect(service.updateSettings("user-1", [] as any)).rejects.toThrow(BadRequestException)
+    })
+
+    it("should create audit log on success", async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...mockUser, settings: null })
+      prisma.user.update.mockResolvedValue({ ...mockUser, settings: { language: "en" } })
+      await service.updateSettings("user-1", { language: "en" })
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: "user.settings.updated",
+            userId: "user-1",
+            metadata: { keys: ["language"] },
+          }),
+        })
+      )
     })
   })
 

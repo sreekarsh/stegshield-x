@@ -154,20 +154,36 @@ export class UsersService {
   }
 
   async updateSettings(userId: string, settings: Record<string, any>) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } })
-    if (!user) throw new NotFoundException("User not found")
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+      throw new BadRequestException("Settings must be a valid object")
+    }
 
-    const existingSettings = (user.settings as Record<string, any>) || {}
-    const merged = { ...existingSettings, ...settings }
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId } })
+      if (!user) throw new NotFoundException("User not found")
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { settings: merged },
+      const existingSettings = (user.settings as Record<string, any>) || {}
+      const merged = { ...existingSettings, ...settings }
+
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { settings: merged },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          userName: user.name,
+          action: AuditActions.USER_SETTINGS_UPDATED,
+          resource: "user",
+          metadata: { keys: Object.keys(settings) },
+        },
+      })
+
+      return { settings: merged }
     })
 
-    await this.audit.logSimple(user.id, user.name, AuditActions.USER_SETTINGS_UPDATED, "user", { keys: Object.keys(settings) })
-
-    return { settings: merged }
+    return result
   }
 
   async findAll(page = 1, limit = 20) {
