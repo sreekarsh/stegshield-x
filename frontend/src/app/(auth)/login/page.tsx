@@ -43,7 +43,8 @@ function LoginForm() {
       }
       await login(form.email, form.password)
 
-      if (mfaRequired) {
+      const { mfaRequired: currentMfaRequired } = useAuthStore.getState()
+      if (currentMfaRequired) {
         return
       }
 
