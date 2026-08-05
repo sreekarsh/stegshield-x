@@ -161,10 +161,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
 
     const contacts = finalContacts.length > 0
       ? finalContacts
-      : [
-          { id: "agent-1", name: "Alex Mercer", avatar: DEMO_USER_DETAILS["agent-1"].avatar },
-          { id: "agent-2", name: "Sam Rivera", avatar: DEMO_USER_DETAILS["agent-2"].avatar },
-        ]
+      : []
     set({ contacts, loading: false })
   },
 
@@ -314,17 +311,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         return res.users
       }
     } catch {}
-
-    const seen = new Set<string>()
-    const results: User[] = []
-    for (const u of DEMO_USERS) {
-      if (seen.has(u.id)) continue
-      seen.add(u.id)
-      if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
-        results.push({ id: u.id, name: u.name, email: u.email, avatar: u.avatar || null, role: "viewer", isVerified: true, isMFAEnabled: false, createdAt: "", updatedAt: "" })
-      }
-    }
-    return results
+    return []
   },
 
   sendContactRequest: async (userId: string, userName?: string, avatar?: string | null) => {
@@ -408,24 +395,6 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   fetchRequests: async () => {
     const myId = getMyId() || "local-user"
     let local = await loadLocalRequests()
-    if (local.length === 0) {
-      const demoReqs: ContactRequest[] = [
-        {
-          id: "req-demo-1",
-          fromUserId: "agent-3",
-          fromUserName: "Jordan Chase",
-          fromUserEmail: "jordan.chase@shield.gov",
-          toUserId: myId,
-          toUserName: "You",
-          toUserEmail: "",
-          avatar: DEMO_USER_DETAILS["agent-3"].avatar,
-          status: "pending",
-          createdAt: new Date().toISOString(),
-        },
-      ]
-      await saveLocalRequests(demoReqs)
-      local = demoReqs
-    }
     const sent = local.filter(r => r.fromUserId === myId && r.status === "pending")
     const pending = local.filter(r => r.toUserId === myId && r.status === "pending")
     set({ pendingRequests: pending, sentRequests: sent })
