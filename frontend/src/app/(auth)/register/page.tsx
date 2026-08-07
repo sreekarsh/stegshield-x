@@ -28,8 +28,8 @@ export default function RegisterPage() {
       await register(form.email, form.password, form.name)
       toast.success("Account created successfully!")
       router.push("/home")
-    } catch {
-      toast.error("Registration failed")
+    } catch (err: any) {
+      toast.error(err.message || "Registration failed")
     } finally {
       setLoading(false)
     }

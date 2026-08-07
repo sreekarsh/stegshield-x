@@ -52,8 +52,8 @@ function LoginForm() {
       const redirect = searchParams.get("redirect")
       const isValidRedirect = redirect && redirect.startsWith("/") && !["/login", "/register", "/dashboard"].includes(redirect)
       router.push(isValidRedirect ? redirect : "/home")
-    } catch {
-      toast.error("Invalid credentials")
+    } catch (err: any) {
+      toast.error(err.message || "Invalid credentials")
     } finally {
       setLoading(false)
     }
